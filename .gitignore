@@ -1,0 +1,4 @@
+.DS_Store
+*.log
+.relaunch.log
+node_modules/

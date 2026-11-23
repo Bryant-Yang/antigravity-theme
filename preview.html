@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-atelier-mode="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Warm Atelier — Antigravity 主题交互预览</title>
+  <link rel="stylesheet" href="./warm-atelier.css" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      height: 100vh;
+      background: var(--background);
+      color: var(--foreground);
+    }
+
+    /* 侧边栏 */
+    [data-testid="conversation-list-sidebar"] {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      padding: 14px 12px;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .traffic-lights {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 6px 8px;
+    }
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      opacity: 0.85;
+    }
+    .dot.red { background: #e86a5e; }
+    .dot.yellow { background: #e6b44c; }
+    .dot.green { background: #64b86b; }
+    .brand-tag {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--muted-foreground);
+    }
+
+    [data-testid="new-conversation-button"] {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    [data-testid="section-header"] {
+      padding: 8px 10px 4px;
+    }
+
+    [data-testid="conversation-row-sidebar"] {
+      padding: 8px 10px;
+      font-size: 13px;
+      color: var(--foreground);
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    [data-testid="conversation-row-sidebar"].active {
+      background: var(--sidebar-secondary);
+      font-weight: 500;
+    }
+    [data-testid="conversation-row-sidebar"] small {
+      display: block;
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin-top: 2px;
+    }
+
+    /* 主画布 */
+    .main-stage {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    [data-testid="title-menu-bar"] {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .top-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pill-btn {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--foreground);
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color 150ms ease, background-color 150ms ease;
+    }
+    .pill-btn:hover {
+      border-color: var(--primary);
+    }
+    .pill-btn.active {
+      border-color: var(--primary);
+      background: var(--atelier-accent-soft);
+      color: var(--foreground);
+      font-weight: 600;
+    }
+    .swatch {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* 对话区 */
+    .chat-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 24px 18px;
+    }
+    .chat-inner {
+      max-width: var(--max-conversation-width);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .user-bubble {
+      align-self: flex-end;
+      max-width: 78%;
+      background: var(--secondary);
+      color: var(--secondary-foreground);
+      border: 1px solid var(--border);
+      padding: 11px 16px;
+      border-radius: 16px 16px 4px 16px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .assistant-msg {
+      animation: fade-in 260ms ease both;
+      font-size: 14.5px;
+    }
+    .assistant-msg h2 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+    .assistant-msg p {
+      margin: 0 0 12px;
+    }
+    .assistant-msg blockquote {
+      margin: 12px 0;
+    }
+    .assistant-msg pre {
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+
+    .status-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      font-size: 11.5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .badge.ok { color: var(--success); }
+    .badge.warn { color: var(--warning); }
+    .badge.err { color: var(--error); }
+
+    /* 输入区 */
+    .composer-wrap {
+      padding: 12px 24px 20px;
+    }
+    [data-testid="agent-input-box"] {
+      max-width: var(--max-conversation-width);
+      margin: 0 auto;
+      padding: 12px 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .composer-input {
+      width: 100%;
+      border: none;
+      outline: none;
+      resize: none;
+      background: transparent;
+      color: var(--foreground);
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .composer-input::placeholder {
+      color: var(--placeholder);
+    }
+    .composer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    [data-testid="model-selector-trigger"] {
+      border: none;
+      background: transparent;
+      padding: 5px 9px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    [data-testid="send-button"] {
+      border: none;
+      padding: 6px 14px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside data-testid="conversation-list-sidebar">
+      <div class="traffic-lights">
+        <span class="dot red"></span>
+        <span class="dot yellow"></span>
+        <span class="dot green"></span>
+        <span class="brand-tag">WARM ATELIER</span>
+      </div>
+
+      <button data-testid="new-conversation-button" type="button">
+        <span>+ 新建对话</span>
+        <span style="font-size:11px;color:var(--muted-foreground)">⌘N</span>
+      </button>
+
+      <div class="sidebar-section">
+        <div data-testid="section-header">今天</div>
+        <div data-testid="conversation-row-sidebar" class="active">
+          反重力暖调编辑室主题定制
+          <small>themes · 刚刚</small>
+        </div>
+        <div data-testid="conversation-row-sidebar">
+          重构 CDP 热重载脚本与双模检测
+          <small>scripts · 2 小时前</small>
+        </div>
+        <div data-testid="conversation-row-sidebar">
+          设计系统配色对比度校验
+          <small>design · 昨天</small>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div data-testid="section-header">工作区</div>
+        <div data-testid="conversation-row-sidebar">warm-atelier</div>
+        <div data-testid="conversation-row-sidebar">antigravity-plugins</div>
+      </div>
+    </aside>
+
+    <main class="main-stage">
+      <header data-testid="title-menu-bar">
+        <div class="top-title">Warm Atelier · 双模主题实时预览</div>
+        <div class="controls">
+          <button class="pill-btn active" id="btn-light" type="button">☀️ 宣纸浅色</button>
+          <button class="pill-btn" id="btn-dark" type="button">🌙 暖炭深色</button>
+          <span style="width:1px;height:16px;background:var(--border);margin:0 2px;"></span>
+          <button class="pill-btn active" data-accent="terracotta" type="button">
+            <span class="swatch" style="background:#c86442"></span>陶土红
+          </button>
+          <button class="pill-btn" data-accent="amber" type="button">
+            <span class="swatch" style="background:#b97324"></span>琥珀金
+          </button>
+          <button class="pill-btn" data-accent="sage" type="button">
+            <span class="swatch" style="background:#3f7a5a"></span>苔藓绿
+          </button>
+          <button class="pill-btn" data-accent="slate" type="button">
+            <span class="swatch" style="background:#48648c"></span>靛青墨
+          </button>
+        </div>
+      </header>
+
+      <section class="chat-scroll">
+        <div class="chat-inner">
+          <div class="user-bubble">
+            帮我看看这套暖调编辑室主题在浅色和深色下的阅读层次、代码块对比度和输入框聚焦手感。
+          </div>
+
+          <article class="assistant-msg prose">
+            <h2>Warm Atelier 设计说明</h2>
+            <p>
+              这套主题以纸质出版物与编辑室灯光为基准：浅色模式采用低眩光米白宣纸底色
+              <code>#F8F5EF</code>，深色模式采用无冷蓝偏色的暖炭黑 <code>#1C1B19</code>，
+              搭配克制的陶土红点缀与衬线标题层次，长时间写代码和阅读对话都不易视觉疲劳。
+            </p>
+            <blockquote>
+              所有 Antigravity 原生 Design Tokens 均已通过 <code>!important</code> 完整覆写，
+              同时兼容 BetterGravity 单文件热重载与零侵入 macOS CDP 注入脚本。
+            </blockquote>
+            <pre><code># 零侵入启动并实时监听 warm-atelier.css
+node scripts/agy-theme.mjs launch
+node scripts/agy-theme.mjs watch</code></pre>
+            <div class="status-row">
+              <span class="badge ok">● 对比度达标 WCAG AA</span>
+              <span class="badge warn">● 浅 / 深双模自动同步</span>
+              <span class="badge err">● 零修改 Antigravity.app</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <div class="composer-wrap">
+        <div data-testid="agent-input-box">
+          <textarea
+            class="composer-input"
+            rows="2"
+            placeholder="点击这里体验输入框的陶土红聚焦光晕，或切换顶部深浅色与点缀色..."
+          ></textarea>
+          <div class="composer-bar">
+            <button data-testid="model-selector-trigger" type="button">Gemini · Warm Atelier ▾</button>
+            <button data-testid="send-button" type="button">发送 ↵</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const html = document.documentElement;
+    const btnLight = document.getElementById("btn-light");
+    const btnDark = document.getElementById("btn-dark");
+
+    const ACCENTS = {
+      terracotta: {
+        light: "#c86442", lightHover: "#b35333", lightSoft: "rgba(200, 100, 66, 0.14)",
+        dark: "#d97757", darkHover: "#e48a6c", darkSoft: "rgba(217, 119, 87, 0.22)",
+      },
+      amber: {
+        light: "#b97324", lightHover: "#9f611b", lightSoft: "rgba(185, 115, 36, 0.15)",
+        dark: "#dda04b", darkHover: "#e8b267", darkSoft: "rgba(221, 160, 75, 0.22)",
+      },
+      sage: {
+        light: "#3f7a5a", lightHover: "#326549", lightSoft: "rgba(63, 122, 90, 0.15)",
+        dark: "#6fa987", darkHover: "#85bc9c", darkSoft: "rgba(111, 169, 135, 0.22)",
+      },
+      slate: {
+        light: "#48648c", lightHover: "#395275", lightSoft: "rgba(72, 100, 140, 0.15)",
+        dark: "#7fa0cc", darkHover: "#95b3db", darkSoft: "rgba(127, 160, 204, 0.22)",
+      },
+    };
+
+    function setMode(mode) {
+      html.setAttribute("data-atelier-mode", mode);
+      btnLight.classList.toggle("active", mode === "light");
+      btnDark.classList.toggle("active", mode === "dark");
+    }
+
+    btnLight.addEventListener("click", () => setMode("light"));
+    btnDark.addEventListener("click", () => setMode("dark"));
+
+    document.querySelectorAll("[data-accent]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.getAttribute("data-accent");
+        const p = ACCENTS[key];
+        html.style.setProperty("--atelier-accent-light", p.light);
+        html.style.setProperty("--atelier-accent-light-hover", p.lightHover);
+        html.style.setProperty("--atelier-accent-light-soft", p.lightSoft);
+        html.style.setProperty("--atelier-accent-dark", p.dark);
+        html.style.setProperty("--atelier-accent-dark-hover", p.darkHover);
+        html.style.setProperty("--atelier-accent-dark-soft", p.darkSoft);
+        document.querySelectorAll("[data-accent]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+    });
+  </script>
+</body>
+</html>
