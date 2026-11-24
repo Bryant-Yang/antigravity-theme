@@ -568,7 +568,7 @@ html[data-cosmic-bg="on"] body {
   background-color: #040611 !important;
 }
 
-html[data-cosmic-bg="on"] body > :not(#cosmic-webgpu-bg):not(#agy-fx-overlay):not(#agy-theme-studio-root) {
+html[data-cosmic-bg="on"] body > :not(#cosmic-webgpu-bg):not(#agy-wallpaper-media):not(#agy-fx-overlay):not(#agy-theme-studio-root) {
   position: relative;
   z-index: 1;
 }
@@ -810,22 +810,22 @@ html[data-cosmic-bg="on"][data-scene="abyssal"] [data-testid="sidebar-split"] .c
   border-color: rgba(45, 212, 191, 0.28) !important;
 }
 
-/* 黑客帝国代码雨 Matrix */
-html[data-cosmic-bg="on"][data-scene="matrix"] {
-  --primary: #10b981 !important;
-  --primary-foreground: #02140b !important;
-  --link: #34d399 !important;
-  --focus-ring-color: #10b981 !important;
-  --code-foreground: #6ee7b7 !important;
-  --border: rgba(16, 185, 129, 0.22) !important;
-  --glass-border: rgba(16, 185, 129, 0.28) !important;
-  --sidebar-secondary: rgba(16, 185, 129, 0.18) !important;
+/* 本地高清动态壁纸 Wallpaper */
+html[data-cosmic-bg="on"][data-scene="wallpaper"] {
+  --primary: #f59e0b !important;
+  --primary-foreground: #1a1004 !important;
+  --link: #fbbf24 !important;
+  --focus-ring-color: #f59e0b !important;
+  --code-foreground: #fcd34d !important;
+  --border: rgba(255, 255, 255, 0.18) !important;
+  --glass-border: rgba(255, 255, 255, 0.24) !important;
+  --sidebar-secondary: rgba(245, 158, 11, 0.2) !important;
 }
-html[data-cosmic-bg="on"][data-scene="matrix"] body::before {
-  background: linear-gradient(90deg, #00ff88 0%, #10b981 48%, transparent 100%) !important;
+html[data-cosmic-bg="on"][data-scene="wallpaper"] body::before {
+  background: linear-gradient(90deg, #f59e0b 0%, #38bdf8 50%, transparent 100%) !important;
 }
-html[data-cosmic-bg="on"][data-scene="matrix"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
-  border-color: rgba(16, 185, 129, 0.32) !important;
+html[data-cosmic-bg="on"][data-scene="wallpaper"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  border-color: rgba(255, 255, 255, 0.24) !important;
 }
 
 /* 液态全息金属 Chrome */
@@ -1169,6 +1169,38 @@ html[data-ai-pulse-enabled="on"][data-ai-busy="true"] [data-testid="agent-input-
   border-color: var(--primary);
   color: #ffffff;
   font-weight: 600;
+}
+
+#agy-theme-studio-root .agy-wp-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+#agy-theme-studio-root .agy-wp-pick-btn {
+  width: 100%;
+  border: 1px dashed color-mix(in srgb, var(--primary) 55%, rgba(255, 255, 255, 0.25));
+  background: rgba(255, 255, 255, 0.05);
+  color: #f1f5f9;
+  font-size: 12px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+#agy-theme-studio-root .agy-wp-pick-btn:hover {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  border-color: var(--primary);
+}
+
+#agy-theme-studio-root .agy-wp-name {
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #agy-theme-studio-root .agy-slider-row {

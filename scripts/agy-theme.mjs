@@ -28,7 +28,7 @@ const VALID_SCENES = [
   "aurora",
   "synthwave",
   "abyssal",
-  "matrix",
+  "wallpaper",
   "chrome",
   "sakura",
   "ember",

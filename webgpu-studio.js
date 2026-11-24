@@ -8,9 +8,12 @@
  */
 (() => {
   const BG_CANVAS_ID = "cosmic-webgpu-bg";
+  const WP_MEDIA_ID = "agy-wallpaper-media";
   const FX_CANVAS_ID = "agy-fx-overlay";
   const UI_ROOT_ID = "agy-theme-studio-root";
   const STORAGE_KEY = "agy-theme-studio-v1";
+  const WP_DB_NAME = "agy-theme-wallpaper-db";
+  const WP_STORE = "files";
   const INITIAL_SCENE_OVERRIDE = typeof window.__agyInitialScene === "string" ? window.__agyInitialScene : null;
 
   if (typeof window.__cosmicWebGpuCleanup === "function") {
@@ -556,49 +559,7 @@
     }
   `;
 
-  // --- Scene 7: Matrix Digital Rain (黑客帝国代码雨) ---
-  const SHADER_MATRIX = WGSL_COMMON + /* wgsl */ `
-    @fragment
-    fn fs(in: VsOut) -> @location(0) vec4f {
-      let res = max(u.resolution, vec2f(1.0));
-      let cols = floor(res.x / 18.0);
-      let rows = floor(res.y / 22.0);
-      let uv = vec2f(in.uv.x, 1.0 - in.uv.y);
-      let grid = vec2f(uv.x * cols, uv.y * rows);
-      let cell = floor(grid);
-      let f = fract(grid);
-      let t = u.time;
-
-      let colSeed = hash11(cell.x * 1.37 + 0.13);
-      let speed = 3.2 + colSeed * 7.5;
-      let offset = hash11(cell.x * 7.91) * 40.0;
-      let trailLen = 10.0 + hash11(cell.x * 3.19) * 18.0;
-      let headY = fract((t * speed + offset) / (rows + trailLen)) * (rows + trailLen);
-      let dist = headY - cell.y;
-
-      var col = vec3f(0.006, 0.018, 0.012);
-
-      if (dist >= 0.0 && dist < trailLen) {
-        let fade = pow(1.0 - dist / trailLen, 1.85);
-        // 伪字符点阵块（每 0.18s 随机跳变）
-        let glyphTime = floor(t * 5.5 + hash21(cell) * 12.0);
-        let sub = floor(f * vec2f(3.0, 4.0));
-        let glyphBit = step(0.42, hash21(cell * 13.7 + sub * 3.1 + glyphTime * 0.37));
-        let margin = step(0.18, f.x) * step(f.x, 0.82) * step(0.15, f.y) * step(f.y, 0.85);
-        let charMask = glyphBit * margin;
-
-        let isHead = smoothstep(1.3, 0.0, dist);
-        let bodyCol = mix(vec3f(0.02, 0.72, 0.34), vec3f(0.12, 1.0, 0.62), fade);
-        let headCol = vec3f(0.82, 1.0, 0.9);
-        col += mix(bodyCol, headCol, isHead) * charMask * (0.28 + 0.95 * fade);
-        col += vec3f(0.04, 0.45, 0.24) * fade * 0.14;
-      }
-
-      // 轻微 CRT 扫描线
-      col *= 0.92 + 0.08 * sin(in.uv.y * res.y * 1.25);
-      return vec4f(aces(col), 1.0);
-    }
-  `;
+  // (Scene 7 已升级为本地高清动态壁纸模式 wallpaper，由 HTML5 硬件解码 video/img + IndexedDB 持久化驱动)
 
   // --- Scene 8: Liquid Iridescent Chrome (液态全息金属) ---
   const SHADER_CHROME = WGSL_COMMON + /* wgsl */ `
@@ -996,7 +957,6 @@
     aurora: SHADER_AURORA,
     synthwave: SHADER_SYNTHWAVE,
     abyssal: SHADER_ABYSSAL,
-    matrix: SHADER_MATRIX,
     chrome: SHADER_CHROME,
     sakura: SHADER_SAKURA,
     ember: SHADER_EMBER,
@@ -1065,7 +1025,7 @@
     aurora: ["#34d399", "#38bdf8", "#a78bfa"],
     synthwave: ["#f43f8e", "#22d3ee", "#facc15"],
     abyssal: ["#2dd4bf", "#38bdf8", "#818cf8"],
-    matrix: ["#00ff88", "#34d399", "#a7f3d0"],
+    wallpaper: ["#f59e0b", "#38bdf8", "#f472b6"],
     chrome: ["#e2e8f0", "#a78bfa", "#38bdf8"],
     sakura: ["#f9a8d4", "#fbcfe8", "#c4b5fd"],
     ember: ["#f97316", "#ef4444", "#fde047"],
@@ -1123,7 +1083,7 @@
     if (scene === "cyberrain" || scene === "sakura") return "rain";
     if (scene === "abyssal") return "ocean";
     if (scene === "ember") return "fire";
-    if (scene === "inkwash" || scene === "circadian" || scene === "none") return "wind";
+    if (scene === "inkwash" || scene === "circadian" || scene === "wallpaper" || scene === "none") return "wind";
     return "space";
   }
 
@@ -1264,22 +1224,153 @@
     }
   }
 
+  // IndexedDB 持久化本地动态壁纸（支持大体积 mp4/webm/mov/gif/png，重启刷新自动恢复）
+  let wallpaperObjectUrl = null;
+  let wallpaperEl = null;
+
+  function openWallpaperDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(WP_DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains(WP_STORE)) {
+          req.result.createObjectStore(WP_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveWallpaperFile(file) {
+    const db = await openWallpaperDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(WP_STORE, "readwrite");
+      tx.objectStore(WP_STORE).put({ blob: file, name: file.name, type: file.type }, "current");
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        db.close();
+        reject(tx.error);
+      };
+    });
+  }
+
+  async function loadWallpaperFile() {
+    const db = await openWallpaperDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(WP_STORE, "readonly");
+      const req = tx.objectStore(WP_STORE).get("current");
+      req.onsuccess = () => {
+        db.close();
+        resolve(req.result || null);
+      };
+      req.onerror = () => {
+        db.close();
+        reject(req.error);
+      };
+    });
+  }
+
+  function clearWallpaperElement() {
+    const old = document.getElementById(WP_MEDIA_ID);
+    if (old) {
+      if (old.tagName === "VIDEO") {
+        try {
+          old.pause();
+          old.src = "";
+        } catch {}
+      }
+      old.remove();
+    }
+    wallpaperEl = null;
+  }
+
+  function mountWallpaperBlob(record) {
+    clearWallpaperElement();
+    if (!record || !record.blob) return;
+    if (wallpaperObjectUrl) {
+      URL.revokeObjectURL(wallpaperObjectUrl);
+      wallpaperObjectUrl = null;
+    }
+    wallpaperObjectUrl = URL.createObjectURL(record.blob);
+    const isVideo = String(record.type || "").startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(record.name || "");
+    const el = document.createElement(isVideo ? "video" : "img");
+    el.id = WP_MEDIA_ID;
+    el.src = wallpaperObjectUrl;
+    if (isVideo) {
+      el.autoplay = true;
+      el.loop = true;
+      el.muted = true;
+      el.playsInline = true;
+    }
+    Object.assign(el.style, {
+      position: "fixed",
+      inset: "0",
+      width: "100vw",
+      height: "100vh",
+      objectFit: "cover",
+      zIndex: "0",
+      pointerEvents: "none",
+      display: state.scene === "wallpaper" ? "block" : "none",
+    });
+    document.body.prepend(el);
+    wallpaperEl = el;
+    if (isVideo && state.scene === "wallpaper") {
+      el.play().catch(() => {});
+    }
+    const nameEl = document.getElementById("agy-wp-name");
+    if (nameEl) {
+      nameEl.textContent = record.name ? `当前: ${record.name}` : "未选择壁纸文件";
+    }
+  }
+
+  const onVisibilityChange = () => {
+    if (!wallpaperEl || wallpaperEl.tagName !== "VIDEO") return;
+    if (document.hidden || state.scene !== "wallpaper") {
+      wallpaperEl.pause();
+    } else {
+      wallpaperEl.play().catch(() => {});
+    }
+  };
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
   function applyStateToDOM() {
     const html = document.documentElement;
     if (state.scene === "none") {
       html.removeAttribute("data-cosmic-bg");
       html.removeAttribute("data-scene");
       bgCanvas.style.display = "none";
+      if (wallpaperEl) {
+        wallpaperEl.style.display = "none";
+        if (wallpaperEl.tagName === "VIDEO") wallpaperEl.pause();
+      }
+    } else if (state.scene === "wallpaper") {
+      html.setAttribute("data-cosmic-bg", "on");
+      html.setAttribute("data-scene", "wallpaper");
+      bgCanvas.style.display = "none";
+      if (wallpaperEl) {
+        wallpaperEl.style.display = "block";
+        if (wallpaperEl.tagName === "VIDEO" && !document.hidden) {
+          wallpaperEl.play().catch(() => {});
+        }
+      }
     } else {
       html.setAttribute("data-cosmic-bg", "on");
       html.setAttribute("data-scene", state.scene);
       bgCanvas.style.display = "block";
+      if (wallpaperEl) {
+        wallpaperEl.style.display = "none";
+        if (wallpaperEl.tagName === "VIDEO") wallpaperEl.pause();
+      }
     }
     html.style.setProperty("--studio-glass-alpha", String(state.alpha));
     html.style.setProperty("--studio-main-alpha", String(Math.min(0.85, state.alpha + 0.08)));
     html.style.setProperty("--studio-sidebar-blur", `${state.blur}px`);
     html.setAttribute("data-ai-pulse-enabled", state.aiPulse ? "on" : "off");
-    window.__cosmicRenderer = state.scene === "none" ? "none" : `webgpu:${state.scene}`;
+    window.__cosmicRenderer =
+      state.scene === "none" ? "none" : state.scene === "wallpaper" ? "video:wallpaper" : `webgpu:${state.scene}`;
   }
 
   /* ========================================================================
@@ -1551,7 +1642,7 @@
       { id: "circadian", label: "🌅 真实昼夜" },
       { id: "synthwave", label: "🌇 蒸汽波网格" },
       { id: "abyssal", label: "🌊 深海荧光" },
-      { id: "matrix", label: "💚 代码雨" },
+      { id: "wallpaper", label: "🎬 动态壁纸" },
       { id: "chrome", label: "🫧 液态金属" },
       { id: "sakura", label: "🌸 樱吹雪夜" },
       { id: "ember", label: "🔥 火山余烬" },
@@ -1571,6 +1662,11 @@
             (s) =>
               `<button type="button" class="agy-scene-btn" data-scene-id="${s.id}">${s.label}</button>`
           ).join("")}
+        </div>
+        <div class="agy-wp-bar">
+          <button type="button" class="agy-wp-pick-btn" id="agy-wp-pick">📁 选择本地高清视频 / 图片壁纸</button>
+          <input type="file" id="agy-wp-file" accept="video/mp4,video/webm,video/quicktime,image/*" style="display:none" />
+          <div class="agy-wp-name" id="agy-wp-name">支持 mp4 / webm / mov / gif / png，自动持久化</div>
         </div>
         <div class="agy-studio-sec-label">通透度与磨砂</div>
         <label class="agy-slider-row">
@@ -1625,13 +1721,37 @@
     fab.addEventListener("click", () => togglePanel());
     closeBtn.addEventListener("click", () => togglePanel(false));
 
-    root.querySelectorAll(".agy-scene-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        state.scene = btn.getAttribute("data-scene-id");
+    const wpPickBtn = root.querySelector("#agy-wp-pick");
+    const wpFileInput = root.querySelector("#agy-wp-file");
+    wpPickBtn.addEventListener("click", () => wpFileInput.click());
+    wpFileInput.addEventListener("change", async () => {
+      const file = wpFileInput.files && wpFileInput.files[0];
+      if (!file) return;
+      try {
+        await saveWallpaperFile(file);
+        state.scene = "wallpaper";
+        mountWallpaperBlob({ blob: file, name: file.name, type: file.type });
         applyStateToDOM();
         syncAmbientAudio();
         saveState();
         syncButtons();
+      } catch (err) {
+        console.warn("[Wallpaper] save failed:", err);
+      }
+      wpFileInput.value = "";
+    });
+
+    root.querySelectorAll(".agy-scene-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const nextScene = btn.getAttribute("data-scene-id");
+        state.scene = nextScene;
+        applyStateToDOM();
+        syncAmbientAudio();
+        saveState();
+        syncButtons();
+        if (nextScene === "wallpaper" && !wallpaperEl) {
+          wpFileInput.click();
+        }
       });
     });
 
@@ -1735,7 +1855,13 @@
       }
       device = null;
     }
-    [BG_CANVAS_ID, FX_CANVAS_ID, UI_ROOT_ID].forEach((id) => {
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    clearWallpaperElement();
+    if (wallpaperObjectUrl) {
+      URL.revokeObjectURL(wallpaperObjectUrl);
+      wallpaperObjectUrl = null;
+    }
+    [BG_CANVAS_ID, WP_MEDIA_ID, FX_CANVAS_ID, UI_ROOT_ID].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.remove();
     });
@@ -1749,6 +1875,11 @@
   resizeCanvases();
   applyStateToDOM();
   buildStudioUI();
+  loadWallpaperFile()
+    .then((rec) => {
+      if (rec && !destroyed) mountWallpaperBlob(rec);
+    })
+    .catch(() => {});
 
   async function startWebGPU() {
     if (!navigator.gpu) return false;
