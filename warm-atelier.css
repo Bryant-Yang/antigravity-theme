@@ -530,8 +530,10 @@ html[data-cosmic-bg="on"] {
   --atelier-scroll-thumb: rgba(190, 206, 255, 0.22);
   --atelier-row-hover: rgba(165, 185, 255, 0.09);
 
-  --background: transparent !important;
-  --content: rgba(7, 10, 24, 0.34) !important;
+  /* 保持 --background 为高对比深色，确保所有弹窗/新建项目/菜单天然清晰不透明；
+     仅对主画布、侧边栏、外壳单独开启透明玻璃 */
+  --background: rgba(14, 18, 30, 0.96) !important;
+  --content: rgba(14, 18, 30, 0.95) !important;
   --shell: rgba(6, 9, 22, 0.32) !important;
   --shell-canvas: transparent !important;
   --foreground: var(--atelier-fg) !important;
@@ -568,7 +570,8 @@ html[data-cosmic-bg="on"] body {
   background-color: #040611 !important;
 }
 
-html[data-cosmic-bg="on"] body > :not(#cosmic-webgpu-bg):not(#agy-wallpaper-media):not(#agy-fx-overlay):not(#agy-theme-studio-root):not(#agy-pomo-bar) {
+/* 仅提升 #root 层级，绝不覆盖 React/Radix Portal 弹窗的 fixed 定位与 z-index */
+html[data-cosmic-bg="on"] #root {
   position: relative;
   z-index: 1;
 }
@@ -886,6 +889,8 @@ html[data-cosmic-bg="on"][data-scene="ember"] [data-testid="sidebar-split"] .con
 /* 东方水墨云海 Ink Wash（浅色宣纸动态主题） */
 html[data-cosmic-bg="on"][data-scene="inkwash"] {
   color-scheme: light !important;
+  --background: rgba(250, 246, 238, 0.97) !important;
+  --content: rgba(250, 246, 238, 0.96) !important;
   --atelier-fg: #1f2421;
   --atelier-fg-muted: #525d58;
   --atelier-placeholder: #7a857f;
@@ -1010,12 +1015,15 @@ html[data-cosmic-bg="on"] {
 }
 
 html[data-cosmic-bg="on"] [role="dialog"],
+html[data-cosmic-bg="on"] [aria-modal="true"],
 html[data-cosmic-bg="on"] [role="menu"],
 html[data-cosmic-bg="on"] [role="listbox"],
 html[data-cosmic-bg="on"] [data-radix-popper-content-wrapper] > *,
 html[data-cosmic-bg="on"] [data-testid*="settings" i],
 html[data-cosmic-bg="on"] [class*="settings" i] {
-  background-color: rgba(13, 16, 28, 0.94) !important;
+  background-color: rgba(14, 18, 30, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.65) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
 }
