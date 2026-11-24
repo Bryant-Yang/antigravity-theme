@@ -949,24 +949,6 @@ html[data-cosmic-bg="on"][data-scene="inkwash"] [class*="settings" i] {
   background-color: rgba(250, 246, 238, 0.96) !important;
 }
 
-/* AI 全息核心 Jarvis */
-html[data-cosmic-bg="on"][data-scene="jarvis"] {
-  --primary: #22d3ee !important;
-  --primary-foreground: #03151c !important;
-  --link: #38bdf8 !important;
-  --focus-ring-color: #22d3ee !important;
-  --code-foreground: #a78bfa !important;
-  --border: rgba(34, 211, 238, 0.22) !important;
-  --glass-border: rgba(34, 211, 238, 0.28) !important;
-  --sidebar-secondary: rgba(34, 211, 238, 0.18) !important;
-}
-html[data-cosmic-bg="on"][data-scene="jarvis"] body::before {
-  background: linear-gradient(90deg, #22d3ee 0%, #8b5cf6 52%, transparent 100%) !important;
-}
-html[data-cosmic-bg="on"][data-scene="jarvis"][data-ai-busy="true"] body::before {
-  background: linear-gradient(90deg, #f97316 0%, #f43f8e 50%, #22d3ee 90%, transparent 100%) !important;
-}
-
 /* 真实昼夜天空 Circadian */
 html[data-cosmic-bg="on"][data-scene="circadian"] {
   --primary: #fb923c !important;

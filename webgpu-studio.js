@@ -760,126 +760,6 @@
     }
   `;
 
-  // --- Scene 12: AI-Linked 3D Holographic Core (Jarvis / Raymarched Crystal + Rings) ---
-  const SHADER_JARVIS = WGSL_COMMON + /* wgsl */ `
-    fn rot2(a: f32) -> mat2x2f {
-      let c = cos(a);
-      let s = sin(a);
-      return mat2x2f(c, -s, s, c);
-    }
-
-    fn sdOctahedron(p: vec3f, s: f32) -> f32 {
-      let ap = abs(p);
-      return (ap.x + ap.y + ap.z - s) * 0.57735027;
-    }
-
-    fn sdTorus(p: vec3f, t: vec2f) -> f32 {
-      let q = vec2f(length(p.xz) - t.x, p.y);
-      return length(q) - t.y;
-    }
-
-    fn mapCore(p_in: vec3f, t: f32, busy: f32) -> vec2f {
-      let speed = 1.0 + busy * 2.2;
-      var p = p_in;
-      let r1 = rot2(t * 0.55 * speed);
-      let r2 = rot2(t * 0.38 * speed);
-      p = vec3f(r1 * p.xz, p.y).xzy;
-      p = vec3f(p.x, r2 * p.yz);
-
-      // 核心八面体水晶（略微呼吸脉动）
-      let pulse = 0.52 + 0.03 * sin(t * (2.5 + busy * 5.0));
-      let dCore = sdOctahedron(p, pulse);
-
-      // 两个交错旋转的全息轨道环
-      var pr1 = p_in;
-      let rr1 = rot2(t * 0.8 * speed);
-      pr1 = vec3f(rr1 * pr1.xy, pr1.z);
-      pr1 = vec3f(pr1.x, rot2(0.75) * pr1.yz);
-      let dRing1 = sdTorus(pr1, vec2f(0.84, 0.012 + busy * 0.008));
-
-      var pr2 = p_in;
-      let rr2 = rot2(-t * 0.65 * speed);
-      pr2 = vec3f(pr2.x, rr2 * pr2.yz);
-      pr2 = vec3f(rot2(1.1) * pr2.xz, pr2.y).xzy;
-      let dRing2 = sdTorus(pr2, vec2f(1.06, 0.009 + busy * 0.006));
-
-      let dRings = min(dRing1, dRing2);
-      if (dCore < dRings) {
-        return vec2f(dCore, 1.0);
-      }
-      return vec2f(dRings, 2.0);
-    }
-
-    @fragment
-    fn fs(in: VsOut) -> @location(0) vec4f {
-      let res = max(u.resolution, vec2f(1.0));
-      let aspect = res.x / res.y;
-      let busy = clamp(u.aiBusy, 0.0, 1.0);
-      let t = u.time;
-      let m = (u.mouse - 0.5) * 1.1;
-
-      // 略偏右中构图，避开左侧导航栏
-      let uv = (in.uv - 0.5) * vec2f(aspect, 1.0) - vec2f(0.12, 0.0);
-
-      // 深空全息网格基底
-      var col = mix(vec3f(0.015, 0.028, 0.068), vec3f(0.008, 0.012, 0.028), smoothstep(0.0, 1.1, length(uv)));
-      let accent = mix(vec3f(0.12, 0.84, 1.0), vec3f(1.0, 0.52, 0.18), busy * 0.72);
-      let accent2 = mix(vec3f(0.48, 0.36, 1.0), vec3f(1.0, 0.25, 0.62), busy * 0.65);
-
-      // 相机光线步进
-      var ro = vec3f(0.0, 0.0, 2.75);
-      var rd = normalize(vec3f(uv, -1.65));
-      let camYaw = rot2(m.x * 0.45);
-      let camPitch = rot2(-m.y * 0.3);
-      ro = vec3f(camYaw * ro.xz, ro.y).xzy;
-      rd = vec3f(camYaw * rd.xz, rd.y).xzy;
-      ro = vec3f(ro.x, camPitch * ro.yz);
-      rd = vec3f(rd.x, camPitch * rd.yz);
-
-      var dist = 0.0;
-      var glow = 0.0;
-      var ringGlow = 0.0;
-      var hitMat = 0.0;
-
-      for (var i = 0; i < 52; i = i + 1) {
-        let pos = ro + rd * dist;
-        let h = mapCore(pos, t, busy);
-        if (h.y < 1.5) {
-          glow += 0.012 / (abs(h.x) + 0.025);
-        } else {
-          ringGlow += 0.008 / (abs(h.x) + 0.018);
-        }
-        if (h.x < 0.0025) {
-          hitMat = h.y;
-          break;
-        }
-        dist += h.x * 0.85;
-        if (dist > 6.0) { break; }
-      }
-
-      if (hitMat > 0.5) {
-        let pos = ro + rd * dist;
-        let e = 0.003;
-        let n = normalize(vec3f(
-          mapCore(pos + vec3f(e, 0.0, 0.0), t, busy).x - mapCore(pos - vec3f(e, 0.0, 0.0), t, busy).x,
-          mapCore(pos + vec3f(0.0, e, 0.0), t, busy).x - mapCore(pos - vec3f(0.0, e, 0.0), t, busy).x,
-          mapCore(pos + vec3f(0.0, 0.0, e), t, busy).x - mapCore(pos - vec3f(0.0, 0.0, e), t, busy).x
-        ));
-        let fresnel = pow(1.0 - max(dot(n, -rd), 0.0), 2.2);
-        if (hitMat < 1.5) {
-          col += accent * (0.28 + fresnel * 1.4) + accent2 * fresnel * 0.65;
-        } else {
-          col += accent * 1.15;
-        }
-      }
-
-      col += accent * glow * (0.045 + busy * 0.035);
-      col += accent2 * ringGlow * (0.055 + busy * 0.045);
-
-      return vec4f(aces(col), 1.0);
-    }
-  `;
-
   // --- Scene 13: Circadian Sky (真实昼夜天空 · 随 Mac 本地时钟演进) ---
   const SHADER_CIRCADIAN = WGSL_COMMON + /* wgsl */ `
     @fragment
@@ -961,7 +841,6 @@
     sakura: SHADER_SAKURA,
     ember: SHADER_EMBER,
     inkwash: SHADER_INKWASH,
-    jarvis: SHADER_JARVIS,
     circadian: SHADER_CIRCADIAN,
   };
 
@@ -1030,7 +909,6 @@
     sakura: ["#f9a8d4", "#fbcfe8", "#c4b5fd"],
     ember: ["#f97316", "#ef4444", "#fde047"],
     inkwash: ["#c84b31", "#4a665f", "#242c30"],
-    jarvis: ["#22d3ee", "#a78bfa", "#fb923c"],
     circadian: ["#fb923c", "#38bdf8", "#fde68a"],
     none: ["#d97757", "#e8a87c", "#f2ece2"],
   };
@@ -1637,7 +1515,6 @@
       { id: "cyberrain", label: "🌧️ 赛博雨夜" },
       { id: "cosmic", label: "🌌 宇宙星空" },
       { id: "blackhole", label: "🕳️ 星际黑洞" },
-      { id: "jarvis", label: "🔮 AI 全息核" },
       { id: "aurora", label: "✨ 北极极光" },
       { id: "circadian", label: "🌅 真实昼夜" },
       { id: "synthwave", label: "🌇 蒸汽波网格" },

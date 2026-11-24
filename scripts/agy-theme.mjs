@@ -33,7 +33,6 @@ const VALID_SCENES = [
   "sakura",
   "ember",
   "inkwash",
-  "jarvis",
   "circadian",
   "none",
 ];
