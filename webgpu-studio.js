@@ -1095,106 +1095,139 @@
     setTimeout(() => el.remove(), 1400);
   }
 
-  // 客制化机械键盘音效（Web Audio API 零素材实时合成：麻将音 Thock / 青轴 Clicky / 复古打字机）
-  let keyNoiseBuf = null;
-  function playKeySound(profile, key) {
+  // 物理建模客制化机械键盘声学引擎（无蜂鸣器正弦波，采用多腔体共振滤波器 + 按下触底/抬起回弹双阶段物理瞬态）
+  let keyImpulseBuf = null;
+  let keyWarmCurve = null;
+
+  function ensureKeyAudioAssets(ctx) {
+    if (!keyImpulseBuf) {
+      // 45ms 复合微瞬态噪声（前 2ms 极陡峭塑料撞击脉冲 + 后续快速指数衰减）
+      const len = Math.floor(ctx.sampleRate * 0.045);
+      keyImpulseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = keyImpulseBuf.getChannelData(0);
+      for (let i = 0; i < len; i += 1) {
+        const t = i / ctx.sampleRate;
+        const attack = Math.min(1, t / 0.0006);
+        const env = Math.exp(-t / 0.0055) + 0.28 * Math.exp(-t / 0.016);
+        d[i] = (Math.random() * 2 - 1) * attack * env;
+      }
+    }
+    if (!keyWarmCurve) {
+      keyWarmCurve = new Float32Array(256);
+      for (let i = 0; i < 256; i += 1) {
+        const x = (i * 2) / 255 - 1;
+        keyWarmCurve[i] = Math.tanh(x * 1.8);
+      }
+    }
+  }
+
+  function hashKeyCode(code) {
+    let h = 2166136261;
+    const s = String(code || "KeyA");
+    for (let i = 0; i < s.length; i += 1) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 1000) / 1000;
+  }
+
+  function triggerResonantTap(ctx, dest, when, freq, q, gainVal, dur) {
+    const src = ctx.createBufferSource();
+    src.buffer = keyImpulseBuf;
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass";
+    f.frequency.setValueAtTime(freq, when);
+    f.Q.setValueAtTime(q, when);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gainVal, when);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    src.connect(f);
+    f.connect(g);
+    g.connect(dest);
+    src.start(when);
+    src.stop(when + dur + 0.005);
+  }
+
+  function playKeySound(profile, key, code, phase = "down") {
     if (!profile || profile === "off") return;
     const ctx = ensureAudioCtx();
     if (!ctx) return;
-    if (!keyNoiseBuf) {
-      const len = Math.floor(ctx.sampleRate * 0.04);
-      keyNoiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
-      const d = keyNoiseBuf.getChannelData(0);
-      for (let i = 0; i < len; i += 1) {
-        d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.22));
-      }
-    }
+    ensureKeyAudioAssets(ctx);
+
     const now = ctx.currentTime;
-    const isBig = key === "Enter" || key === " " || key === "Backspace";
-    const jitter = 0.92 + Math.random() * 0.16;
+    const isSpace = code === "Space" || key === " ";
+    const isEnter = key === "Enter" || code === "Enter";
+    const isBack = key === "Backspace" || code === "Backspace";
+    const isBig = isSpace || isEnter || isBack;
+    const isUp = phase === "up";
+
+    // 按键固定音色微差（同一颗键一致，相邻键自然错落）+ 微小力度抖动
+    const keyPitch = 0.91 + hashKeyCode(code) * 0.18;
+    const velJitter = 0.88 + Math.random() * 0.24;
+    const bigScale = isSpace ? 0.72 : isBig ? 0.84 : 1.0;
+
+    // 轻度饱和 + 极短近场桌面反射总线
+    const bus = ctx.createGain();
+    bus.gain.value = (isUp ? 0.44 : 0.92) * velJitter;
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = keyWarmCurve;
+    bus.connect(shaper);
+    shaper.connect(ctx.destination);
 
     if (profile === "thock") {
-      // 温润麻将音 / 雨滴轴：低频饱满闷响 + 短促过滤敲击
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = "triangle";
-      const baseFreq = (isBig ? 132 : 182) * jitter;
-      osc.frequency.setValueAtTime(baseFreq * 1.55, now);
-      osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.42, now + 0.065);
-      g.gain.setValueAtTime(isBig ? 0.34 : 0.24, now);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
-      osc.connect(g);
-      g.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.08);
-
-      const nSrc = ctx.createBufferSource();
-      nSrc.buffer = keyNoiseBuf;
-      const bp = ctx.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.value = (isBig ? 780 : 1180) * jitter;
-      bp.Q.value = 1.4;
-      const ng = ctx.createGain();
-      ng.gain.setValueAtTime(0.24, now);
-      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.036);
-      nSrc.connect(bp);
-      bp.connect(ng);
-      ng.connect(ctx.destination);
-      nSrc.start(now);
+      // 客制化 Gasket 铝坨坨 + PBT 键帽麻将音：低频桌面共鸣 + 中频空腔木鱼声 + 轻触底
+      const pitch = keyPitch * bigScale * (isUp ? 1.32 : 1.0);
+      if (!isUp) {
+        // 1. 桌面与铝壳低频闷响（~195-260Hz）
+        triggerResonantTap(ctx, bus, now, 225 * pitch, 2.2, isSpace ? 1.55 : 1.15, 0.042);
+        // 2. PBT 键帽空腔“麻将”主音（~780-980Hz，延迟 2.5ms 模拟触底）
+        triggerResonantTap(ctx, bus, now + 0.0025, 890 * pitch, 3.6, 0.95, 0.032);
+        // 3. 轴心轻触声（~2.2kHz，极柔和）
+        triggerResonantTap(ctx, bus, now, 2150 * pitch, 2.0, 0.24, 0.014);
+      } else {
+        // 抬起回弹：干脆偏高、无低频厚重感
+        triggerResonantTap(ctx, bus, now, 1280 * pitch, 3.2, 0.55, 0.02);
+        triggerResonantTap(ctx, bus, now + 0.001, 2650 * pitch, 2.2, 0.22, 0.012);
+      }
     } else if (profile === "clicky") {
-      // 清脆青轴：高频明快 click + 轻触底
-      const nSrc = ctx.createBufferSource();
-      nSrc.buffer = keyNoiseBuf;
-      const hp = ctx.createBiquadFilter();
-      hp.type = "bandpass";
-      hp.frequency.value = (isBig ? 2300 : 3200) * jitter;
-      hp.Q.value = 2.4;
-      const ng = ctx.createGain();
-      ng.gain.setValueAtTime(0.36, now);
-      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.032);
-      nSrc.connect(hp);
-      hp.connect(ng);
-      ng.connect(ctx.destination);
-      nSrc.start(now);
-
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime((isBig ? 240 : 340) * jitter, now);
-      osc.frequency.exponentialRampToValueAtTime(95, now + 0.04);
-      g.gain.setValueAtTime(0.16, now);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
-      osc.connect(g);
-      g.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.05);
+      // Box White / 青轴扭簧：极锐利的双段金属脆响 + 清晰触底 + 干脆回弹
+      const pitch = keyPitch * bigScale * (isUp ? 1.24 : 1.0);
+      if (!isUp) {
+        // 0ms 扭簧发声脆点（4.6kHz 高 Q 瞬间脉冲）
+        triggerResonantTap(ctx, bus, now, 4600 * pitch, 4.8, 1.1, 0.011);
+        triggerResonantTap(ctx, bus, now + 0.0012, 6800 * pitch, 3.5, 0.55, 0.008);
+        // 5ms 触底塑料敲击声（340Hz + 1.5kHz）
+        triggerResonantTap(ctx, bus, now + 0.005, 340 * pitch, 2.0, isSpace ? 0.95 : 0.65, 0.028);
+        triggerResonantTap(ctx, bus, now + 0.005, 1550 * pitch, 2.8, 0.65, 0.018);
+      } else {
+        // 抬起第二段扭簧轻脆声
+        triggerResonantTap(ctx, bus, now, 5200 * pitch, 4.5, 0.62, 0.009);
+        triggerResonantTap(ctx, bus, now + 0.002, 1850 * pitch, 2.5, 0.35, 0.014);
+      }
     } else if (profile === "typewriter") {
-      // 复古机械打字机：硬朗击打 + 回车清脆铃声
-      const nSrc = ctx.createBufferSource();
-      nSrc.buffer = keyNoiseBuf;
-      const bp = ctx.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.value = 1850 * jitter;
-      bp.Q.value = 1.8;
-      const ng = ctx.createGain();
-      ng.gain.setValueAtTime(0.38, now);
-      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.042);
-      nSrc.connect(bp);
-      bp.connect(ng);
-      ng.connect(ctx.destination);
-      nSrc.start(now);
-
-      if (key === "Enter") {
-        const bell = ctx.createOscillator();
-        const bg = ctx.createGain();
-        bell.type = "sine";
-        bell.frequency.setValueAtTime(2150, now + 0.02);
-        bg.gain.setValueAtTime(0.16, now + 0.02);
-        bg.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
-        bell.connect(bg);
-        bg.connect(ctx.destination);
-        bell.start(now + 0.02);
-        bell.stop(now + 0.48);
+      // 复古机械打字机：金属字锤硬朗连击 + 滚筒敲击 + 回车金属摇铃
+      const pitch = keyPitch * bigScale * (isUp ? 1.18 : 1.0);
+      if (!isUp) {
+        triggerResonantTap(ctx, bus, now, 1650 * pitch, 2.8, 1.05, 0.024);
+        triggerResonantTap(ctx, bus, now + 0.006, 3300 * pitch, 3.6, 0.92, 0.018);
+        triggerResonantTap(ctx, bus, now + 0.006, 280 * pitch, 1.8, 0.85, 0.036);
+        if (isEnter) {
+          // 经典打字机换行清脆铜铃（基频 + 泛音）
+          [2280, 4590].forEach((freq, idx) => {
+            const bell = ctx.createOscillator();
+            const bg = ctx.createGain();
+            bell.type = "sine";
+            bell.frequency.setValueAtTime(freq, now + 0.025);
+            bg.gain.setValueAtTime(idx === 0 ? 0.11 : 0.04, now + 0.025);
+            bg.gain.exponentialRampToValueAtTime(0.0001, now + (idx === 0 ? 0.52 : 0.24));
+            bell.connect(bg);
+            bg.connect(ctx.destination);
+            bell.start(now + 0.025);
+            bell.stop(now + 0.55);
+          });
+        }
+      } else {
+        triggerResonantTap(ctx, bus, now, 2400 * pitch, 2.4, 0.45, 0.015);
       }
     }
   }
@@ -1783,10 +1816,10 @@
     if (!isEditable) return;
 
     const ignoredKeys = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock", "Escape", "Tab"]);
-    if (state.keySound && state.keySound !== "off" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (state.keySound && state.keySound !== "off" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat) {
       // 兼容中文输入法（IME 敲击时 e.key === "Process"）及所有字符/空格/回车/退格键
       if (!ignoredKeys.has(e.key)) {
-        playKeySound(state.keySound, e.code === "Space" ? " " : e.key);
+        playKeySound(state.keySound, e.code === "Space" ? " " : e.key, e.code, "down");
       }
     }
 
@@ -1838,10 +1871,28 @@
     }
   };
 
+  const onKeyUp = (e) => {
+    if (!state.keySound || state.keySound === "off") return;
+    const ignoredKeys = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock", "Escape", "Tab"]);
+    if (ignoredKeys.has(e.key) || e.metaKey || e.ctrlKey || e.altKey) return;
+    const active = document.activeElement;
+    const box = document.querySelector('[data-testid="agent-input-box"]');
+    const isEditable = Boolean(
+      active &&
+        (active.tagName === "TEXTAREA" ||
+          active.tagName === "INPUT" ||
+          active.isContentEditable ||
+          (box && box.contains(active)))
+    );
+    if (!isEditable) return;
+    playKeySound(state.keySound, e.code === "Space" ? " " : e.key, e.code, "up");
+  };
+
   window.addEventListener("mousemove", onMouseMove, { passive: true });
   window.addEventListener("pointerdown", onPointerDown, { passive: true });
   // 使用捕获阶段监听，避免富文本输入框拦截冒泡导致键盘音效/火花漏触发
   window.addEventListener("keydown", onKeyDown, true);
+  window.addEventListener("keyup", onKeyUp, true);
   window.addEventListener("resize", resizeCanvases, { passive: true });
 
   // 检测 AI 是否正在思考/输出（驱动流光呼吸环、3D 核心加速、完成极光脉冲与水晶提示音）
@@ -2220,7 +2271,8 @@
     root.querySelector("#agy-key-sound").addEventListener("change", (e) => {
       state.keySound = e.target.value;
       if (state.keySound !== "off") {
-        playKeySound(state.keySound, "Enter");
+        playKeySound(state.keySound, "a", "KeyA", "down");
+        setTimeout(() => playKeySound(state.keySound, "a", "KeyA", "up"), 65);
       }
       saveState();
     });
@@ -2345,6 +2397,7 @@
     window.removeEventListener("mousemove", onMouseMove);
     window.removeEventListener("pointerdown", onPointerDown);
     window.removeEventListener("keydown", onKeyDown, true);
+    window.removeEventListener("keyup", onKeyUp, true);
     window.removeEventListener("resize", resizeCanvases);
     if (device) {
       try {
