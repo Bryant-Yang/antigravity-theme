@@ -718,7 +718,8 @@ html[data-cosmic-bg="on"][data-scene="cyberrain"] [data-testid="sidebar-split"] 
 html[data-cosmic-bg="on"] [data-main-content-body],
 html[data-cosmic-bg="on"] [data-side-panel-body] {
   background-color: rgba(7, 10, 24, var(--studio-main-alpha, 0.32)) !important;
-  backdrop-filter: blur(3px) !important;
+  backdrop-filter: blur(var(--studio-main-blur, 0px)) !important;
+  -webkit-backdrop-filter: blur(var(--studio-main-blur, 0px)) !important;
 }
 
 html[data-cosmic-bg="on"] [data-side-panel-body] .bg-background,
@@ -1480,25 +1481,25 @@ html[data-cosmic-bg="on"][data-scene="wallpaper"][data-adaptive-comfort="on"] #a
   transition: filter 0.6s ease;
 }
 
-/* 主对话区柔光阅读通道：中间文字区温和托底，四周保持壁纸通透 */
+/* 主对话区柔光阅读通道：中间文字区温和托底，四周保持壁纸通透，模糊度完全交由「画面模糊」滑块控制（默认 0px 锐利清晰） */
 html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] {
   background: linear-gradient(
     90deg,
-    rgba(6, 10, 20, calc(var(--studio-adaptive-scrim, 0.44) * 0.62)) 0%,
-    rgba(6, 10, 20, var(--studio-adaptive-scrim, 0.44)) 14%,
-    rgba(6, 10, 20, var(--studio-adaptive-scrim, 0.44)) 86%,
-    rgba(6, 10, 20, calc(var(--studio-adaptive-scrim, 0.44) * 0.62)) 100%
+    rgba(6, 10, 20, calc(var(--studio-adaptive-scrim, 0.42) * 0.58)) 0%,
+    rgba(6, 10, 20, var(--studio-adaptive-scrim, 0.42)) 14%,
+    rgba(6, 10, 20, var(--studio-adaptive-scrim, 0.42)) 86%,
+    rgba(6, 10, 20, calc(var(--studio-adaptive-scrim, 0.42) * 0.58)) 100%
   ) !important;
-  backdrop-filter: blur(var(--studio-adaptive-blur, 5px)) saturate(122%) !important;
-  -webkit-backdrop-filter: blur(var(--studio-adaptive-blur, 5px)) saturate(122%) !important;
-  transition: background 0.65s ease, backdrop-filter 0.65s ease !important;
+  backdrop-filter: blur(var(--studio-main-blur, 0px)) !important;
+  -webkit-backdrop-filter: blur(var(--studio-main-blur, 0px)) !important;
+  transition: background 0.65s ease !important;
 }
 
-/* 右侧辅助面板同步自适应磨砂，确保工具列表与任务状态清晰锐利 */
+/* 右侧辅助面板同步自适应托底与用户可控模糊 */
 html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-side-panel-body] {
-  background-color: rgba(8, 12, 24, var(--studio-adaptive-scrim, 0.48)) !important;
-  backdrop-filter: blur(var(--studio-adaptive-blur, 6px)) saturate(125%) !important;
-  -webkit-backdrop-filter: blur(var(--studio-adaptive-blur, 6px)) saturate(125%) !important;
+  background-color: rgba(8, 12, 24, var(--studio-adaptive-scrim, 0.44)) !important;
+  backdrop-filter: blur(var(--studio-main-blur, 0px)) !important;
+  -webkit-backdrop-filter: blur(var(--studio-main-blur, 0px)) !important;
   transition: background-color 0.65s ease !important;
 }
 

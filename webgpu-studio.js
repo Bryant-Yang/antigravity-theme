@@ -28,6 +28,7 @@
   const DEFAULT_STATE = {
     scene: "cyberrain",
     alpha: 0.24,
+    mainBlur: 0,
     blur: 5,
     ecoMode: true,
     lightning: true,
@@ -1113,44 +1114,44 @@
     const jitter = 0.92 + Math.random() * 0.16;
 
     if (profile === "thock") {
-      // 温润麻将音 / 雨滴轴：低频闷响 + 极短过滤敲击
+      // 温润麻将音 / 雨滴轴：低频饱满闷响 + 短促过滤敲击
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
       osc.type = "triangle";
-      const baseFreq = (isBig ? 128 : 175) * jitter;
-      osc.frequency.setValueAtTime(baseFreq * 1.45, now);
-      osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.45, now + 0.055);
-      g.gain.setValueAtTime(isBig ? 0.14 : 0.095, now);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.065);
+      const baseFreq = (isBig ? 132 : 182) * jitter;
+      osc.frequency.setValueAtTime(baseFreq * 1.55, now);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.42, now + 0.065);
+      g.gain.setValueAtTime(isBig ? 0.34 : 0.24, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
       osc.connect(g);
       g.connect(ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.07);
+      osc.stop(now + 0.08);
 
       const nSrc = ctx.createBufferSource();
       nSrc.buffer = keyNoiseBuf;
       const bp = ctx.createBiquadFilter();
       bp.type = "bandpass";
-      bp.frequency.value = (isBig ? 720 : 1080) * jitter;
-      bp.Q.value = 1.6;
+      bp.frequency.value = (isBig ? 780 : 1180) * jitter;
+      bp.Q.value = 1.4;
       const ng = ctx.createGain();
-      ng.gain.setValueAtTime(0.08, now);
-      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.032);
+      ng.gain.setValueAtTime(0.24, now);
+      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.036);
       nSrc.connect(bp);
       bp.connect(ng);
       ng.connect(ctx.destination);
       nSrc.start(now);
     } else if (profile === "clicky") {
-      // 清脆青轴：高频双段 click + 轻触底
+      // 清脆青轴：高频明快 click + 轻触底
       const nSrc = ctx.createBufferSource();
       nSrc.buffer = keyNoiseBuf;
       const hp = ctx.createBiquadFilter();
       hp.type = "bandpass";
-      hp.frequency.value = (isBig ? 2400 : 3400) * jitter;
-      hp.Q.value = 3.2;
+      hp.frequency.value = (isBig ? 2300 : 3200) * jitter;
+      hp.Q.value = 2.4;
       const ng = ctx.createGain();
-      ng.gain.setValueAtTime(0.12, now);
-      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
+      ng.gain.setValueAtTime(0.36, now);
+      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.032);
       nSrc.connect(hp);
       hp.connect(ng);
       ng.connect(ctx.destination);
@@ -1159,14 +1160,14 @@
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime((isBig ? 220 : 310) * jitter, now);
-      osc.frequency.exponentialRampToValueAtTime(90, now + 0.035);
-      g.gain.setValueAtTime(0.06, now);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+      osc.frequency.setValueAtTime((isBig ? 240 : 340) * jitter, now);
+      osc.frequency.exponentialRampToValueAtTime(95, now + 0.04);
+      g.gain.setValueAtTime(0.16, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
       osc.connect(g);
       g.connect(ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.045);
+      osc.stop(now + 0.05);
     } else if (profile === "typewriter") {
       // 复古机械打字机：硬朗击打 + 回车清脆铃声
       const nSrc = ctx.createBufferSource();
@@ -1174,10 +1175,10 @@
       const bp = ctx.createBiquadFilter();
       bp.type = "bandpass";
       bp.frequency.value = 1850 * jitter;
-      bp.Q.value = 2.0;
+      bp.Q.value = 1.8;
       const ng = ctx.createGain();
-      ng.gain.setValueAtTime(0.14, now);
-      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.038);
+      ng.gain.setValueAtTime(0.38, now);
+      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.042);
       nSrc.connect(bp);
       bp.connect(ng);
       ng.connect(ctx.destination);
@@ -1188,12 +1189,12 @@
         const bg = ctx.createGain();
         bell.type = "sine";
         bell.frequency.setValueAtTime(2150, now + 0.02);
-        bg.gain.setValueAtTime(0.07, now + 0.02);
-        bg.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+        bg.gain.setValueAtTime(0.16, now + 0.02);
+        bg.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
         bell.connect(bg);
         bg.connect(ctx.destination);
         bell.start(now + 0.02);
-        bell.stop(now + 0.45);
+        bell.stop(now + 0.48);
       }
     }
   }
@@ -1439,13 +1440,11 @@
         const avgLuma = lumaSum / Math.max(pixelCount, 1);
         const variance = Math.max(0, lumaSqSum / Math.max(pixelCount, 1) - avgLuma * avgLuma);
         const stdDev = Math.sqrt(variance);
-        // 画面越亮或对比越复杂（如明亮鱼缸/白沙/亮景），阅读区遮罩柔和抬升至 0.42~0.62，同时保留边缘通透
+        // 画面越亮或对比越复杂，仅柔和抬升遮罩浓度，不擅自把画面糊掉（模糊度完全由用户滑块控制）
         const baseAlpha = Number(state.alpha) || 0.24;
-        const adaptiveScrim = Math.min(0.64, Math.max(baseAlpha + 0.08, 0.24 + avgLuma * 0.42 + stdDev * 0.34));
-        const adaptiveBlur = Math.min(10, Math.max(3, Math.round(2 + avgLuma * 6 + stdDev * 8)));
-        const chipAlpha = Math.min(0.76, Math.max(0.52, adaptiveScrim + 0.16));
+        const adaptiveScrim = Math.min(0.58, Math.max(baseAlpha + 0.06, 0.22 + avgLuma * 0.36 + stdDev * 0.28));
+        const chipAlpha = Math.min(0.76, Math.max(0.54, adaptiveScrim + 0.16));
         html.style.setProperty("--studio-adaptive-scrim", adaptiveScrim.toFixed(3));
-        html.style.setProperty("--studio-adaptive-blur", `${adaptiveBlur}px`);
         html.style.setProperty("--studio-chip-alpha", chipAlpha.toFixed(3));
       }
     } catch {
@@ -1710,10 +1709,10 @@
     html.setAttribute("data-adaptive-comfort", state.adaptiveComfort ? "on" : "off");
     html.style.setProperty("--studio-glass-alpha", String(state.alpha));
     html.style.setProperty("--studio-main-alpha", String(Math.min(0.85, state.alpha + 0.08)));
+    html.style.setProperty("--studio-main-blur", `${state.mainBlur}px`);
     html.style.setProperty("--studio-sidebar-blur", `${state.blur}px`);
     if (state.scene !== "wallpaper") {
       html.style.setProperty("--studio-adaptive-scrim", String(Math.min(0.6, state.alpha + 0.1)));
-      html.style.setProperty("--studio-adaptive-blur", "3px");
       html.style.setProperty("--studio-chip-alpha", "0.56");
     } else if (state.adaptiveComfort) {
       setTimeout(sampleWallpaperAccent, 120);
@@ -1773,17 +1772,25 @@
     }
 
     const box = document.querySelector('[data-testid="agent-input-box"]');
-    if (!box) return;
     const active = document.activeElement;
-    if (!active || !box.contains(active)) return;
+    const isEditable = Boolean(
+      active &&
+        (active.tagName === "TEXTAREA" ||
+          active.tagName === "INPUT" ||
+          active.isContentEditable ||
+          (box && box.contains(active)))
+    );
+    if (!isEditable) return;
 
+    const ignoredKeys = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock", "Escape", "Tab"]);
     if (state.keySound && state.keySound !== "off" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      if (e.key.length === 1 || e.key === "Enter" || e.key === "Backspace") {
-        playKeySound(state.keySound, e.key);
+      // 兼容中文输入法（IME 敲击时 e.key === "Process"）及所有字符/空格/回车/退格键
+      if (!ignoredKeys.has(e.key)) {
+        playKeySound(state.keySound, e.code === "Space" ? " " : e.key);
       }
     }
 
-    if (!state.typingSparks) return;
+    if (!state.typingSparks || !box || !box.contains(active)) return;
     const rect = box.getBoundingClientRect();
     const palette = SCENE_COLORS[state.scene] || SCENE_COLORS.cyberrain;
 
@@ -1833,7 +1840,8 @@
 
   window.addEventListener("mousemove", onMouseMove, { passive: true });
   window.addEventListener("pointerdown", onPointerDown, { passive: true });
-  window.addEventListener("keydown", onKeyDown, { passive: true });
+  // 使用捕获阶段监听，避免富文本输入框拦截冒泡导致键盘音效/火花漏触发
+  window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("resize", resizeCanvases, { passive: true });
 
   // 检测 AI 是否正在思考/输出（驱动流光呼吸环、3D 核心加速、完成极光脉冲与水晶提示音）
@@ -2076,6 +2084,11 @@
           <em id="agy-val-alpha">${Math.round(state.alpha * 100)}%</em>
         </label>
         <label class="agy-slider-row">
+          <span>画面模糊</span>
+          <input type="range" id="agy-sl-mainblur" min="0" max="16" step="1" value="${state.mainBlur}" />
+          <em id="agy-val-mainblur">${state.mainBlur}px</em>
+        </label>
+        <label class="agy-slider-row">
           <span>侧栏模糊</span>
           <input type="range" id="agy-sl-blur" min="0" max="24" step="1" value="${state.blur}" />
           <em id="agy-val-blur">${state.blur}px</em>
@@ -2238,6 +2251,15 @@
       saveState();
     });
 
+    const slMainBlur = root.querySelector("#agy-sl-mainblur");
+    const valMainBlur = root.querySelector("#agy-val-mainblur");
+    slMainBlur.addEventListener("input", () => {
+      state.mainBlur = Number(slMainBlur.value);
+      valMainBlur.textContent = `${state.mainBlur}px`;
+      applyStateToDOM();
+      saveState();
+    });
+
     const slBlur = root.querySelector("#agy-sl-blur");
     const valBlur = root.querySelector("#agy-val-blur");
     slBlur.addEventListener("input", () => {
@@ -2322,7 +2344,7 @@
     }
     window.removeEventListener("mousemove", onMouseMove);
     window.removeEventListener("pointerdown", onPointerDown);
-    window.removeEventListener("keydown", onKeyDown);
+    window.removeEventListener("keydown", onKeyDown, true);
     window.removeEventListener("resize", resizeCanvases);
     if (device) {
       try {
