@@ -41,6 +41,7 @@
     ambientAudio: false,
     ambientVol: 0.28,
     keySound: "off", // off | thock | clicky | typewriter
+    keyVol: 0.65,
     autoAccent: true,
     adaptiveComfort: true,
     customAccent: "",
@@ -1164,8 +1165,10 @@
     const bigScale = isSpace ? 0.72 : isBig ? 0.84 : 1.0;
 
     // 轻度饱和 + 极短近场桌面反射总线
+    const vol = Math.max(0, Math.min(1.5, Number(state.keyVol ?? 0.65)));
+    if (vol <= 0.001) return;
     const bus = ctx.createGain();
-    bus.gain.value = (isUp ? 0.52 : 0.95) * velJitter;
+    bus.gain.value = (isUp ? 0.52 : 0.95) * velJitter * vol;
     const shaper = ctx.createWaveShaper();
     shaper.curve = keyWarmCurve;
     bus.connect(shaper);
@@ -1207,7 +1210,7 @@
             const bg = ctx.createGain();
             bell.type = "sine";
             bell.frequency.setValueAtTime(freq, now + 0.025);
-            bg.gain.setValueAtTime(idx === 0 ? 0.14 : 0.05, now + 0.025);
+            bg.gain.setValueAtTime((idx === 0 ? 0.14 : 0.05) * vol, now + 0.025);
             bg.gain.exponentialRampToValueAtTime(0.0001, now + (idx === 0 ? 0.52 : 0.24));
             bell.connect(bg);
             bg.connect(ctx.destination);
@@ -2117,6 +2120,11 @@
             <option value="typewriter" ${state.keySound === "typewriter" ? "selected" : ""}>🎞️ 复古打字机</option>
           </select>
         </div>
+        <label class="agy-slider-row">
+          <span>按键音量</span>
+          <input type="range" id="agy-sl-keyvol" min="0.05" max="1" step="0.05" value="${state.keyVol}" />
+          <em id="agy-val-keyvol">${Math.round(state.keyVol * 100)}%</em>
+        </label>
         <div class="agy-studio-sec-label">通透度与磨砂</div>
         <label class="agy-slider-row">
           <span>遮罩浓度</span>
@@ -2264,6 +2272,20 @@
         setTimeout(() => playKeySound(state.keySound, "a", "KeyA", "up"), 65);
       }
       saveState();
+    });
+
+    const slKeyVol = root.querySelector("#agy-sl-keyvol");
+    const valKeyVol = root.querySelector("#agy-val-keyvol");
+    slKeyVol.addEventListener("input", () => {
+      state.keyVol = Number(slKeyVol.value);
+      valKeyVol.textContent = `${Math.round(state.keyVol * 100)}%`;
+      saveState();
+    });
+    slKeyVol.addEventListener("change", () => {
+      if (state.keySound !== "off") {
+        playKeySound(state.keySound, "a", "KeyA", "down");
+        setTimeout(() => playKeySound(state.keySound, "a", "KeyA", "up"), 65);
+      }
     });
 
     root.querySelectorAll(".agy-scene-btn").forEach((btn) => {
