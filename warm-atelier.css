@@ -1462,6 +1462,74 @@ html[data-zen-mode="on"] [data-testid="sidebar-split"] > :first-child {
   cursor: pointer;
 }
 
+/* ==========================================================================
+   16. 优雅自适应视觉友好（Adaptive Visual Comfort · VisionOS 光学可读性）
+       在保留动态壁纸通透感的同时，根据画面实时亮度与对比度自动抬升文字与卡片清晰度
+   ========================================================================== */
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) {
+  --foreground: #f8faff !important;
+  --secondary-foreground: #e6edf8 !important;
+  --muted-foreground: rgba(226, 234, 248, 0.82) !important;
+  --card: rgba(10, 14, 26, var(--studio-chip-alpha, 0.62)) !important;
+  --card-border: rgba(255, 255, 255, 0.16) !important;
+}
+
+/* 轻微柔化高光视频过曝区，保留色彩通透与宝石质感 */
+html[data-cosmic-bg="on"][data-scene="wallpaper"][data-adaptive-comfort="on"] #agy-wallpaper-media {
+  filter: brightness(0.84) contrast(1.04) saturate(1.06);
+  transition: filter 0.6s ease;
+}
+
+/* 主对话区柔光阅读通道：中间文字区温和托底，四周保持壁纸通透 */
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] {
+  background: linear-gradient(
+    90deg,
+    rgba(6, 10, 20, calc(var(--studio-adaptive-scrim, 0.44) * 0.62)) 0%,
+    rgba(6, 10, 20, var(--studio-adaptive-scrim, 0.44)) 14%,
+    rgba(6, 10, 20, var(--studio-adaptive-scrim, 0.44)) 86%,
+    rgba(6, 10, 20, calc(var(--studio-adaptive-scrim, 0.44) * 0.62)) 100%
+  ) !important;
+  backdrop-filter: blur(var(--studio-adaptive-blur, 5px)) saturate(122%) !important;
+  -webkit-backdrop-filter: blur(var(--studio-adaptive-blur, 5px)) saturate(122%) !important;
+  transition: background 0.65s ease, backdrop-filter 0.65s ease !important;
+}
+
+/* 右侧辅助面板同步自适应磨砂，确保工具列表与任务状态清晰锐利 */
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-side-panel-body] {
+  background-color: rgba(8, 12, 24, var(--studio-adaptive-scrim, 0.48)) !important;
+  backdrop-filter: blur(var(--studio-adaptive-blur, 6px)) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(var(--studio-adaptive-blur, 6px)) saturate(125%) !important;
+  transition: background-color 0.65s ease !important;
+}
+
+/* VisionOS 级羽化光学字影：无明显阴影感，但在亮色鱼/白沙背景上瞬间分离文字轮廓 */
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] .prose,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] p,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] li,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] h1,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] h2,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] h3,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-side-panel-body],
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-testid="conversation-row-sidebar"] {
+  text-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.56), 0 0 10px rgba(0, 0, 0, 0.24);
+}
+
+/* 文件变更条、工具卡片、行内代码胶囊：升级为高对比磨砂玻璃铭牌 */
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] .bg-card,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] .border.rounded-lg,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] .border.rounded-xl {
+  background-color: rgba(10, 14, 26, var(--studio-chip-alpha, 0.62)) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) code:not(pre code) {
+  background-color: rgba(10, 15, 30, 0.78) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  text-shadow: none !important;
+}
+
 /* 避免岛内列表及粘性分组头重复叠加模糊层 */
 [data-testid="sidebar-split"] [data-testid="conversation-list-sidebar"],
 [data-testid="sidebar-split"] [data-testid="conversation-list-sidebar"] .bg-sidebar {

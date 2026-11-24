@@ -41,6 +41,7 @@
     ambientVol: 0.28,
     keySound: "off", // off | thock | clicky | typewriter
     autoAccent: true,
+    adaptiveComfort: true,
     customAccent: "",
     activeWallpaperId: "",
     wpAutoRotate: false,
@@ -1384,7 +1385,7 @@
   }
 
   function sampleWallpaperAccent() {
-    if (state.scene !== "wallpaper" || !state.autoAccent || !wallpaperEl || document.hidden) return;
+    if (state.scene !== "wallpaper" || !wallpaperEl || document.hidden) return;
     if (wallpaperEl.tagName === "VIDEO" && wallpaperEl.readyState < 2) return;
     if (wallpaperEl.tagName === "IMG" && !wallpaperEl.complete) return;
     try {
@@ -1398,21 +1399,55 @@
       const data = samplerCtx.getImageData(0, 0, 24, 14).data;
       let bestScore = -1;
       let bestHsl = [38, 0.78, 0.62];
+      let lumaSum = 0;
+      let lumaSqSum = 0;
+      const pixelCount = data.length / 4;
+
       for (let i = 0; i < data.length; i += 4) {
-        const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
-        if (l < 0.14 || l > 0.88) continue;
-        const score = s * (1 - Math.abs(l - 0.55));
-        if (score > bestScore) {
-          bestScore = score;
-          bestHsl = [h, s, l];
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        lumaSum += lum;
+        lumaSqSum += lum * lum;
+
+        if (state.autoAccent && !state.customAccent) {
+          const [h, s, l] = rgbToHsl(r, g, b);
+          if (l >= 0.14 && l <= 0.88) {
+            const score = s * (1 - Math.abs(l - 0.55));
+            if (score > bestScore) {
+              bestScore = score;
+              bestHsl = [h, s, l];
+            }
+          }
         }
       }
-      const vibrantHex = hslToHex(
-        bestHsl[0],
-        Math.min(0.88, Math.max(0.55, bestHsl[1] * 1.15)),
-        Math.min(0.68, Math.max(0.56, bestHsl[2]))
-      );
-      applyAccentOverride(vibrantHex);
+
+      // 1. 自动主色调同步
+      if (state.autoAccent && !state.customAccent) {
+        const vibrantHex = hslToHex(
+          bestHsl[0],
+          Math.min(0.88, Math.max(0.55, bestHsl[1] * 1.15)),
+          Math.min(0.72, Math.max(0.58, bestHsl[2]))
+        );
+        applyAccentOverride(vibrantHex);
+      }
+
+      // 2. 优雅自适应视觉友好：根据画面平均亮度 + 局部对比度动态计算阅读区柔光遮罩与微模糊
+      const html = document.documentElement;
+      if (state.adaptiveComfort) {
+        const avgLuma = lumaSum / Math.max(pixelCount, 1);
+        const variance = Math.max(0, lumaSqSum / Math.max(pixelCount, 1) - avgLuma * avgLuma);
+        const stdDev = Math.sqrt(variance);
+        // 画面越亮或对比越复杂（如明亮鱼缸/白沙/亮景），阅读区遮罩柔和抬升至 0.42~0.62，同时保留边缘通透
+        const baseAlpha = Number(state.alpha) || 0.24;
+        const adaptiveScrim = Math.min(0.64, Math.max(baseAlpha + 0.08, 0.24 + avgLuma * 0.42 + stdDev * 0.34));
+        const adaptiveBlur = Math.min(10, Math.max(3, Math.round(2 + avgLuma * 6 + stdDev * 8)));
+        const chipAlpha = Math.min(0.76, Math.max(0.52, adaptiveScrim + 0.16));
+        html.style.setProperty("--studio-adaptive-scrim", adaptiveScrim.toFixed(3));
+        html.style.setProperty("--studio-adaptive-blur", `${adaptiveBlur}px`);
+        html.style.setProperty("--studio-chip-alpha", chipAlpha.toFixed(3));
+      }
     } catch {
       // ignore cross-origin or decode errors
     }
@@ -1672,9 +1707,17 @@
     }
 
     html.setAttribute("data-zen-mode", state.zenMode ? "on" : "off");
+    html.setAttribute("data-adaptive-comfort", state.adaptiveComfort ? "on" : "off");
     html.style.setProperty("--studio-glass-alpha", String(state.alpha));
     html.style.setProperty("--studio-main-alpha", String(Math.min(0.85, state.alpha + 0.08)));
     html.style.setProperty("--studio-sidebar-blur", `${state.blur}px`);
+    if (state.scene !== "wallpaper") {
+      html.style.setProperty("--studio-adaptive-scrim", String(Math.min(0.6, state.alpha + 0.1)));
+      html.style.setProperty("--studio-adaptive-blur", "3px");
+      html.style.setProperty("--studio-chip-alpha", "0.56");
+    } else if (state.adaptiveComfort) {
+      setTimeout(sampleWallpaperAccent, 120);
+    }
     html.setAttribute("data-ai-pulse-enabled", state.aiPulse ? "on" : "off");
     window.__cosmicRenderer =
       state.scene === "none" ? "none" : state.scene === "wallpaper" ? "video:wallpaper" : `webgpu:${state.scene}`;
@@ -1994,8 +2037,9 @@
           <input type="file" id="agy-wp-file" multiple accept="video/mp4,video/webm,video/quicktime,image/*" style="display:none" />
           <div class="agy-wp-list" id="agy-wp-list"></div>
           <div class="agy-wp-subrow">
-            <label><input type="checkbox" id="agy-wp-rotate" ${state.wpAutoRotate ? "checked" : ""}/> 10分钟自动轮换</label>
+            <label><input type="checkbox" id="agy-wp-rotate" ${state.wpAutoRotate ? "checked" : ""}/> 10分钟轮换</label>
             <label><input type="checkbox" id="agy-auto-accent" ${state.autoAccent ? "checked" : ""}/> 🎨 自动取色</label>
+            <label><input type="checkbox" id="agy-adaptive-comfort" ${state.adaptiveComfort ? "checked" : ""}/> 👁️ 视觉护眼</label>
           </div>
           <div class="agy-accent-row">
             <span>高亮主色</span>
@@ -2116,6 +2160,12 @@
       } else if (!state.customAccent) {
         applyAccentOverride("");
       }
+      saveState();
+    });
+
+    root.querySelector("#agy-adaptive-comfort").addEventListener("change", (e) => {
+      state.adaptiveComfort = e.target.checked;
+      applyStateToDOM();
       saveState();
     });
 
@@ -2316,10 +2366,10 @@
     })
     .catch(() => {});
   accentSampleTimer = setInterval(() => {
-    if (!destroyed && state.scene === "wallpaper" && state.autoAccent) {
+    if (!destroyed && state.scene === "wallpaper" && (state.autoAccent || state.adaptiveComfort)) {
       sampleWallpaperAccent();
     }
-  }, 4500);
+  }, 2500);
 
   async function startWebGPU() {
     if (!navigator.gpu) return false;
