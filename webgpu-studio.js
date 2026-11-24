@@ -1101,22 +1101,19 @@
 
   function ensureKeyAudioAssets(ctx) {
     if (!keyImpulseBuf) {
-      // 45ms 复合微瞬态噪声（前 2ms 极陡峭塑料撞击脉冲 + 后续快速指数衰减）
-      const len = Math.floor(ctx.sampleRate * 0.045);
+      // 70ms 全振幅白噪声（包络完全交由 GainNode 精确控制，避免双重衰减导致音量过轻）
+      const len = Math.floor(ctx.sampleRate * 0.07);
       keyImpulseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
       const d = keyImpulseBuf.getChannelData(0);
       for (let i = 0; i < len; i += 1) {
-        const t = i / ctx.sampleRate;
-        const attack = Math.min(1, t / 0.0006);
-        const env = Math.exp(-t / 0.0055) + 0.28 * Math.exp(-t / 0.016);
-        d[i] = (Math.random() * 2 - 1) * attack * env;
+        d[i] = Math.random() * 2 - 1;
       }
     }
     if (!keyWarmCurve) {
       keyWarmCurve = new Float32Array(256);
       for (let i = 0; i < 256; i += 1) {
         const x = (i * 2) / 255 - 1;
-        keyWarmCurve[i] = Math.tanh(x * 1.8);
+        keyWarmCurve[i] = Math.tanh(x * 1.45);
       }
     }
   }
@@ -1168,57 +1165,49 @@
 
     // 轻度饱和 + 极短近场桌面反射总线
     const bus = ctx.createGain();
-    bus.gain.value = (isUp ? 0.44 : 0.92) * velJitter;
+    bus.gain.value = (isUp ? 0.52 : 0.95) * velJitter;
     const shaper = ctx.createWaveShaper();
     shaper.curve = keyWarmCurve;
     bus.connect(shaper);
     shaper.connect(ctx.destination);
 
     if (profile === "thock") {
-      // 客制化 Gasket 铝坨坨 + PBT 键帽麻将音：低频桌面共鸣 + 中频空腔木鱼声 + 轻触底
+      // 客制化 Gasket 铝坨坨 + PBT 键帽麻将音：饱满低频闷响 + 温润空腔木鱼声
       const pitch = keyPitch * bigScale * (isUp ? 1.32 : 1.0);
       if (!isUp) {
-        // 1. 桌面与铝壳低频闷响（~195-260Hz）
-        triggerResonantTap(ctx, bus, now, 225 * pitch, 2.2, isSpace ? 1.55 : 1.15, 0.042);
-        // 2. PBT 键帽空腔“麻将”主音（~780-980Hz，延迟 2.5ms 模拟触底）
-        triggerResonantTap(ctx, bus, now + 0.0025, 890 * pitch, 3.6, 0.95, 0.032);
-        // 3. 轴心轻触声（~2.2kHz，极柔和）
-        triggerResonantTap(ctx, bus, now, 2150 * pitch, 2.0, 0.24, 0.014);
+        triggerResonantTap(ctx, bus, now, 230 * pitch, 1.4, isSpace ? 3.2 : 2.4, 0.055);
+        triggerResonantTap(ctx, bus, now + 0.002, 860 * pitch, 2.0, 2.2, 0.042);
+        triggerResonantTap(ctx, bus, now, 2100 * pitch, 1.4, 0.85, 0.018);
       } else {
-        // 抬起回弹：干脆偏高、无低频厚重感
-        triggerResonantTap(ctx, bus, now, 1280 * pitch, 3.2, 0.55, 0.02);
-        triggerResonantTap(ctx, bus, now + 0.001, 2650 * pitch, 2.2, 0.22, 0.012);
+        triggerResonantTap(ctx, bus, now, 1320 * pitch, 1.8, 1.35, 0.025);
+        triggerResonantTap(ctx, bus, now + 0.001, 2600 * pitch, 1.5, 0.65, 0.014);
       }
     } else if (profile === "clicky") {
-      // Box White / 青轴扭簧：极锐利的双段金属脆响 + 清晰触底 + 干脆回弹
-      const pitch = keyPitch * bigScale * (isUp ? 1.24 : 1.0);
+      // Box White / 青轴扭簧：清晰明快的双段金属脆响 + 扎实触底 + 干脆回弹
+      const pitch = keyPitch * bigScale * (isUp ? 1.22 : 1.0);
       if (!isUp) {
-        // 0ms 扭簧发声脆点（4.6kHz 高 Q 瞬间脉冲）
-        triggerResonantTap(ctx, bus, now, 4600 * pitch, 4.8, 1.1, 0.011);
-        triggerResonantTap(ctx, bus, now + 0.0012, 6800 * pitch, 3.5, 0.55, 0.008);
-        // 5ms 触底塑料敲击声（340Hz + 1.5kHz）
-        triggerResonantTap(ctx, bus, now + 0.005, 340 * pitch, 2.0, isSpace ? 0.95 : 0.65, 0.028);
-        triggerResonantTap(ctx, bus, now + 0.005, 1550 * pitch, 2.8, 0.65, 0.018);
+        triggerResonantTap(ctx, bus, now, 4200 * pitch, 2.2, 2.6, 0.016);
+        triggerResonantTap(ctx, bus, now + 0.0015, 6200 * pitch, 1.8, 1.5, 0.012);
+        triggerResonantTap(ctx, bus, now + 0.0045, 360 * pitch, 1.3, isSpace ? 2.4 : 1.7, 0.038);
+        triggerResonantTap(ctx, bus, now + 0.0045, 1600 * pitch, 1.8, 1.8, 0.024);
       } else {
-        // 抬起第二段扭簧轻脆声
-        triggerResonantTap(ctx, bus, now, 5200 * pitch, 4.5, 0.62, 0.009);
-        triggerResonantTap(ctx, bus, now + 0.002, 1850 * pitch, 2.5, 0.35, 0.014);
+        triggerResonantTap(ctx, bus, now, 4800 * pitch, 2.2, 1.6, 0.013);
+        triggerResonantTap(ctx, bus, now + 0.002, 1900 * pitch, 1.6, 1.0, 0.018);
       }
     } else if (profile === "typewriter") {
       // 复古机械打字机：金属字锤硬朗连击 + 滚筒敲击 + 回车金属摇铃
       const pitch = keyPitch * bigScale * (isUp ? 1.18 : 1.0);
       if (!isUp) {
-        triggerResonantTap(ctx, bus, now, 1650 * pitch, 2.8, 1.05, 0.024);
-        triggerResonantTap(ctx, bus, now + 0.006, 3300 * pitch, 3.6, 0.92, 0.018);
-        triggerResonantTap(ctx, bus, now + 0.006, 280 * pitch, 1.8, 0.85, 0.036);
+        triggerResonantTap(ctx, bus, now, 1650 * pitch, 1.8, 2.6, 0.032);
+        triggerResonantTap(ctx, bus, now + 0.006, 3200 * pitch, 2.0, 2.2, 0.024);
+        triggerResonantTap(ctx, bus, now + 0.006, 290 * pitch, 1.2, 2.1, 0.044);
         if (isEnter) {
-          // 经典打字机换行清脆铜铃（基频 + 泛音）
           [2280, 4590].forEach((freq, idx) => {
             const bell = ctx.createOscillator();
             const bg = ctx.createGain();
             bell.type = "sine";
             bell.frequency.setValueAtTime(freq, now + 0.025);
-            bg.gain.setValueAtTime(idx === 0 ? 0.11 : 0.04, now + 0.025);
+            bg.gain.setValueAtTime(idx === 0 ? 0.14 : 0.05, now + 0.025);
             bg.gain.exponentialRampToValueAtTime(0.0001, now + (idx === 0 ? 0.52 : 0.24));
             bell.connect(bg);
             bg.connect(ctx.destination);
@@ -1227,7 +1216,7 @@
           });
         }
       } else {
-        triggerResonantTap(ctx, bus, now, 2400 * pitch, 2.4, 0.45, 0.015);
+        triggerResonantTap(ctx, bus, now, 2400 * pitch, 1.6, 1.25, 0.02);
       }
     }
   }
