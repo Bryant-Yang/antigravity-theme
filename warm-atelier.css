@@ -568,7 +568,7 @@ html[data-cosmic-bg="on"] body {
   background-color: #040611 !important;
 }
 
-html[data-cosmic-bg="on"] body > :not(#cosmic-webgpu-bg):not(#agy-wallpaper-media):not(#agy-fx-overlay):not(#agy-theme-studio-root) {
+html[data-cosmic-bg="on"] body > :not(#cosmic-webgpu-bg):not(#agy-wallpaper-media):not(#agy-fx-overlay):not(#agy-theme-studio-root):not(#agy-pomo-bar) {
   position: relative;
   z-index: 1;
 }
@@ -1223,6 +1223,242 @@ html[data-ai-pulse-enabled="on"][data-ai-busy="true"] [data-testid="agent-input-
 
 #agy-theme-studio-root .agy-toggles input[type="checkbox"] {
   accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   15. 自动取色 / 自定义主色覆写、禅模式、番茄钟顶栏光带与新控件样式
+   ========================================================================== */
+html[data-custom-accent="on"] {
+  --atelier-accent: var(--studio-custom-accent);
+  --primary: var(--studio-custom-accent) !important;
+  --link: var(--studio-custom-accent) !important;
+  --focus-ring-color: var(--studio-custom-accent) !important;
+  --sidebar-secondary: color-mix(in srgb, var(--studio-custom-accent) 22%, transparent) !important;
+  --border: color-mix(in srgb, var(--studio-custom-accent) 20%, rgba(255, 255, 255, 0.12)) !important;
+  --glass-border: color-mix(in srgb, var(--studio-custom-accent) 28%, rgba(255, 255, 255, 0.14)) !important;
+}
+
+html[data-custom-accent="on"] body::before {
+  background: linear-gradient(
+    90deg,
+    var(--studio-custom-accent) 0%,
+    color-mix(in srgb, var(--studio-custom-accent) 45%, transparent) 62%,
+    transparent 100%
+  ) !important;
+}
+
+html[data-custom-accent="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  border-color: color-mix(in srgb, var(--studio-custom-accent) 34%, rgba(255, 255, 255, 0.14)) !important;
+}
+
+/* 禅模式（一键隐藏左侧导航栏 + 拓宽对话阅读区） */
+html[data-zen-mode="on"] {
+  --max-conversation-width: 920px !important;
+}
+html[data-zen-mode="on"] [data-testid="sidebar-split"] > :first-child {
+  display: none !important;
+}
+
+/* 番茄钟顶部极细流光进度条 */
+#agy-pomo-bar {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 3px !important;
+  z-index: 2147482600 !important;
+  pointer-events: none !important;
+  background: rgba(255, 255, 255, 0.08);
+  display: none;
+}
+
+#agy-pomo-bar .agy-pomo-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary), #fde047);
+  box-shadow: 0 0 12px var(--primary);
+  transition: width 0.6s linear;
+}
+
+/* 面板新增组件：壁纸收藏夹、取色器、番茄钟、机械轴体下拉 */
+#agy-theme-studio-root .agy-wp-actions {
+  display: flex;
+  gap: 6px;
+}
+
+#agy-theme-studio-root .agy-wp-pick-btn {
+  flex: 1;
+}
+
+#agy-theme-studio-root .agy-mini-btn {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  font-size: 11px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+#agy-theme-studio-root .agy-mini-btn:hover {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: var(--primary);
+}
+
+#agy-theme-studio-root .agy-mini-btn.primary {
+  background: color-mix(in srgb, var(--primary) 26%, transparent);
+  border-color: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+#agy-theme-studio-root .agy-wp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 92px;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+
+#agy-theme-studio-root .agy-wp-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+#agy-theme-studio-root .agy-wp-item:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+#agy-theme-studio-root .agy-wp-item.active {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+  color: #ffffff;
+}
+
+#agy-theme-studio-root .agy-wp-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#agy-theme-studio-root .agy-wp-del {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 3px;
+  line-height: 1;
+}
+
+#agy-theme-studio-root .agy-wp-del:hover {
+  color: #f87171;
+}
+
+#agy-theme-studio-root .agy-wp-subrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: #cbd5e1;
+  margin-top: 3px;
+}
+
+#agy-theme-studio-root .agy-wp-subrow label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+#agy-theme-studio-root .agy-accent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #cbd5e1;
+  margin-top: 2px;
+}
+
+#agy-theme-studio-root #agy-accent-picker {
+  width: 34px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+#agy-theme-studio-root .agy-pomo-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 9px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+#agy-theme-studio-root .agy-pomo-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+#agy-theme-studio-root .agy-pomo-top label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+#agy-theme-studio-root .agy-pomo-top small {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+#agy-theme-studio-root .agy-pomo-clock {
+  font-family: var(--atelier-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+#agy-theme-studio-root .agy-pomo-btns {
+  display: flex;
+  gap: 5px;
+}
+
+#agy-theme-studio-root .agy-pomo-btns .agy-mini-btn.primary {
+  flex: 1;
+}
+
+#agy-theme-studio-root .agy-select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 9px;
+  outline: none;
   cursor: pointer;
 }
 

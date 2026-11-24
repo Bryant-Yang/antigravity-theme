@@ -10,6 +10,7 @@
   const BG_CANVAS_ID = "cosmic-webgpu-bg";
   const WP_MEDIA_ID = "agy-wallpaper-media";
   const FX_CANVAS_ID = "agy-fx-overlay";
+  const POMO_BAR_ID = "agy-pomo-bar";
   const UI_ROOT_ID = "agy-theme-studio-root";
   const STORAGE_KEY = "agy-theme-studio-v1";
   const WP_DB_NAME = "agy-theme-wallpaper-db";
@@ -38,6 +39,13 @@
     doneChime: true,
     ambientAudio: false,
     ambientVol: 0.28,
+    keySound: "off", // off | thock | clicky | typewriter
+    autoAccent: true,
+    customAccent: "",
+    activeWallpaperId: "",
+    wpAutoRotate: false,
+    zenMode: false,
+    pomoMinutes: 25,
     panelOpen: false,
   };
 
@@ -1085,6 +1093,110 @@
     setTimeout(() => el.remove(), 1400);
   }
 
+  // 客制化机械键盘音效（Web Audio API 零素材实时合成：麻将音 Thock / 青轴 Clicky / 复古打字机）
+  let keyNoiseBuf = null;
+  function playKeySound(profile, key) {
+    if (!profile || profile === "off") return;
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    if (!keyNoiseBuf) {
+      const len = Math.floor(ctx.sampleRate * 0.04);
+      keyNoiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = keyNoiseBuf.getChannelData(0);
+      for (let i = 0; i < len; i += 1) {
+        d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.22));
+      }
+    }
+    const now = ctx.currentTime;
+    const isBig = key === "Enter" || key === " " || key === "Backspace";
+    const jitter = 0.92 + Math.random() * 0.16;
+
+    if (profile === "thock") {
+      // 温润麻将音 / 雨滴轴：低频闷响 + 极短过滤敲击
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "triangle";
+      const baseFreq = (isBig ? 128 : 175) * jitter;
+      osc.frequency.setValueAtTime(baseFreq * 1.45, now);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.45, now + 0.055);
+      g.gain.setValueAtTime(isBig ? 0.14 : 0.095, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.065);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.07);
+
+      const nSrc = ctx.createBufferSource();
+      nSrc.buffer = keyNoiseBuf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = (isBig ? 720 : 1080) * jitter;
+      bp.Q.value = 1.6;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.08, now);
+      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.032);
+      nSrc.connect(bp);
+      bp.connect(ng);
+      ng.connect(ctx.destination);
+      nSrc.start(now);
+    } else if (profile === "clicky") {
+      // 清脆青轴：高频双段 click + 轻触底
+      const nSrc = ctx.createBufferSource();
+      nSrc.buffer = keyNoiseBuf;
+      const hp = ctx.createBiquadFilter();
+      hp.type = "bandpass";
+      hp.frequency.value = (isBig ? 2400 : 3400) * jitter;
+      hp.Q.value = 3.2;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.12, now);
+      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
+      nSrc.connect(hp);
+      hp.connect(ng);
+      ng.connect(ctx.destination);
+      nSrc.start(now);
+
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime((isBig ? 220 : 310) * jitter, now);
+      osc.frequency.exponentialRampToValueAtTime(90, now + 0.035);
+      g.gain.setValueAtTime(0.06, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.045);
+    } else if (profile === "typewriter") {
+      // 复古机械打字机：硬朗击打 + 回车清脆铃声
+      const nSrc = ctx.createBufferSource();
+      nSrc.buffer = keyNoiseBuf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = 1850 * jitter;
+      bp.Q.value = 2.0;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.14, now);
+      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.038);
+      nSrc.connect(bp);
+      bp.connect(ng);
+      ng.connect(ctx.destination);
+      nSrc.start(now);
+
+      if (key === "Enter") {
+        const bell = ctx.createOscillator();
+        const bg = ctx.createGain();
+        bell.type = "sine";
+        bell.frequency.setValueAtTime(2150, now + 0.02);
+        bg.gain.setValueAtTime(0.07, now + 0.02);
+        bg.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+        bell.connect(bg);
+        bg.connect(ctx.destination);
+        bell.start(now + 0.02);
+        bell.stop(now + 0.45);
+      }
+    }
+  }
+
   function resizeCanvases() {
     const maxDpr = state.ecoMode ? 0.85 : 1.5;
     const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
@@ -1102,16 +1214,25 @@
     }
   }
 
-  // IndexedDB 持久化本地动态壁纸（支持大体积 mp4/webm/mov/gif/png，重启刷新自动恢复）
+  // IndexedDB 多文件动态壁纸收藏夹（支持多选 mp4/webm/mov/gif/png、一键切换、删除与自动轮播）
   let wallpaperObjectUrl = null;
   let wallpaperEl = null;
+  let wallpaperList = []; // [{ id, name, type, blob, createdAt }]
+  let wpRotateTimer = null;
+  let accentSampleTimer = null;
+  let samplerCanvas = null;
+  let samplerCtx = null;
 
   function openWallpaperDB() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open(WP_DB_NAME, 1);
+      const req = indexedDB.open(WP_DB_NAME, 2);
       req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(WP_STORE)) {
-          req.result.createObjectStore(WP_STORE);
+        const db = req.result;
+        if (!db.objectStoreNames.contains(WP_STORE)) {
+          db.createObjectStore(WP_STORE);
+        }
+        if (!db.objectStoreNames.contains("playlist")) {
+          db.createObjectStore("playlist", { keyPath: "id" });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -1119,11 +1240,23 @@
     });
   }
 
-  async function saveWallpaperFile(file) {
+  async function addWallpaperFiles(files) {
     const db = await openWallpaperDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(WP_STORE, "readwrite");
-      tx.objectStore(WP_STORE).put({ blob: file, name: file.name, type: file.type }, "current");
+    const added = [];
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("playlist", "readwrite");
+      const store = tx.objectStore("playlist");
+      for (const file of files) {
+        const rec = {
+          id: `wp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          name: file.name,
+          type: file.type,
+          blob: file,
+          createdAt: Date.now(),
+        };
+        store.put(rec);
+        added.push(rec);
+      }
       tx.oncomplete = () => {
         db.close();
         resolve();
@@ -1133,22 +1266,156 @@
         reject(tx.error);
       };
     });
+    wallpaperList = [...wallpaperList, ...added];
+    return added;
   }
 
-  async function loadWallpaperFile() {
+  async function deleteWallpaperById(id) {
     const db = await openWallpaperDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(WP_STORE, "readonly");
-      const req = tx.objectStore(WP_STORE).get("current");
-      req.onsuccess = () => {
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("playlist", "readwrite");
+      tx.objectStore("playlist").delete(id);
+      tx.oncomplete = () => {
         db.close();
-        resolve(req.result || null);
+        resolve();
       };
-      req.onerror = () => {
+      tx.onerror = () => {
         db.close();
-        reject(req.error);
+        reject(tx.error);
       };
     });
+    wallpaperList = wallpaperList.filter((w) => w.id !== id);
+    if (state.activeWallpaperId === id) {
+      state.activeWallpaperId = wallpaperList[0]?.id || "";
+      if (wallpaperList[0]) {
+        mountWallpaperBlob(wallpaperList[0]);
+      } else {
+        clearWallpaperElement();
+      }
+      saveState();
+    }
+    renderWallpaperPlaylistUI();
+  }
+
+  async function loadAllWallpapers() {
+    const db = await openWallpaperDB();
+    const items = await new Promise((resolve, reject) => {
+      const tx = db.transaction("playlist", "readonly");
+      const req = tx.objectStore("playlist").getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+
+    // 兼容旧版单壁纸数据自动迁移
+    if (items.length === 0 && db.objectStoreNames.contains(WP_STORE)) {
+      const legacy = await new Promise((resolve) => {
+        const tx = db.transaction(WP_STORE, "readonly");
+        const req = tx.objectStore(WP_STORE).get("current");
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+      if (legacy && legacy.blob) {
+        const migrated = {
+          id: `wp_legacy_${Date.now()}`,
+          name: legacy.name || "已保存壁纸",
+          type: legacy.type || "",
+          blob: legacy.blob,
+          createdAt: Date.now(),
+        };
+        await new Promise((resolve) => {
+          const tx = db.transaction("playlist", "readwrite");
+          tx.objectStore("playlist").put(migrated);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        });
+        items.push(migrated);
+      }
+    }
+    db.close();
+    items.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    wallpaperList = items;
+    return items;
+  }
+
+  // 动态壁纸自动取色（从视频帧 / 图片提取高饱和柔和主色调，实时同步全界面高亮）
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+      else if (max === g) h = ((b - r) / d + 2) / 6;
+      else h = ((r - g) / d + 4) / 6;
+    }
+    return [h * 360, s, l];
+  }
+
+  function hslToHex(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) [r, g, b] = [c, x, 0];
+    else if (h < 120) [r, g, b] = [x, c, 0];
+    else if (h < 180) [r, g, b] = [0, c, x];
+    else if (h < 240) [r, g, b] = [0, x, c];
+    else if (h < 300) [r, g, b] = [x, 0, c];
+    else [r, g, b] = [c, 0, x];
+    const toHex = (v) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
+  function applyAccentOverride(hex) {
+    const html = document.documentElement;
+    if (!hex) {
+      html.removeAttribute("data-custom-accent");
+      html.style.removeProperty("--studio-custom-accent");
+      return;
+    }
+    html.setAttribute("data-custom-accent", "on");
+    html.style.setProperty("--studio-custom-accent", hex);
+    const picker = document.getElementById("agy-accent-picker");
+    if (picker && picker.value.toLowerCase() !== hex.toLowerCase()) {
+      picker.value = hex;
+    }
+  }
+
+  function sampleWallpaperAccent() {
+    if (state.scene !== "wallpaper" || !state.autoAccent || !wallpaperEl || document.hidden) return;
+    if (wallpaperEl.tagName === "VIDEO" && wallpaperEl.readyState < 2) return;
+    if (wallpaperEl.tagName === "IMG" && !wallpaperEl.complete) return;
+    try {
+      if (!samplerCanvas) {
+        samplerCanvas = document.createElement("canvas");
+        samplerCanvas.width = 24;
+        samplerCanvas.height = 14;
+        samplerCtx = samplerCanvas.getContext("2d", { willReadFrequently: true });
+      }
+      samplerCtx.drawImage(wallpaperEl, 0, 0, 24, 14);
+      const data = samplerCtx.getImageData(0, 0, 24, 14).data;
+      let bestScore = -1;
+      let bestHsl = [38, 0.78, 0.62];
+      for (let i = 0; i < data.length; i += 4) {
+        const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
+        if (l < 0.14 || l > 0.88) continue;
+        const score = s * (1 - Math.abs(l - 0.55));
+        if (score > bestScore) {
+          bestScore = score;
+          bestHsl = [h, s, l];
+        }
+      }
+      const vibrantHex = hslToHex(
+        bestHsl[0],
+        Math.min(0.88, Math.max(0.55, bestHsl[1] * 1.15)),
+        Math.min(0.68, Math.max(0.56, bestHsl[2]))
+      );
+      applyAccentOverride(vibrantHex);
+    } catch {
+      // ignore cross-origin or decode errors
+    }
   }
 
   function clearWallpaperElement() {
@@ -1168,6 +1435,7 @@
   function mountWallpaperBlob(record) {
     clearWallpaperElement();
     if (!record || !record.blob) return;
+    state.activeWallpaperId = record.id || state.activeWallpaperId;
     if (wallpaperObjectUrl) {
       URL.revokeObjectURL(wallpaperObjectUrl);
       wallpaperObjectUrl = null;
@@ -1182,6 +1450,9 @@
       el.loop = true;
       el.muted = true;
       el.playsInline = true;
+      el.addEventListener("loadeddata", () => setTimeout(sampleWallpaperAccent, 180), { once: true });
+    } else {
+      el.addEventListener("load", () => setTimeout(sampleWallpaperAccent, 80), { once: true });
     }
     Object.assign(el.style, {
       position: "fixed",
@@ -1198,10 +1469,159 @@
     if (isVideo && state.scene === "wallpaper") {
       el.play().catch(() => {});
     }
-    const nameEl = document.getElementById("agy-wp-name");
-    if (nameEl) {
-      nameEl.textContent = record.name ? `当前: ${record.name}` : "未选择壁纸文件";
+    renderWallpaperPlaylistUI();
+  }
+
+  function nextWallpaper() {
+    if (wallpaperList.length === 0) return;
+    const idx = wallpaperList.findIndex((w) => w.id === state.activeWallpaperId);
+    const next = wallpaperList[(idx + 1) % wallpaperList.length];
+    if (next) {
+      state.scene = "wallpaper";
+      mountWallpaperBlob(next);
+      applyStateToDOM();
+      saveState();
     }
+  }
+
+  function syncWallpaperRotation() {
+    if (wpRotateTimer) {
+      clearInterval(wpRotateTimer);
+      wpRotateTimer = null;
+    }
+    if (state.wpAutoRotate && wallpaperList.length > 1) {
+      wpRotateTimer = setInterval(() => {
+        if (!document.hidden && state.scene === "wallpaper") {
+          nextWallpaper();
+        }
+      }, 10 * 60 * 1000); // 每 10 分钟自动轮换下一条
+    }
+  }
+
+  function renderWallpaperPlaylistUI() {
+    const wrap = document.getElementById("agy-wp-list");
+    if (!wrap) return;
+    if (wallpaperList.length === 0) {
+      wrap.innerHTML = `<div class="agy-wp-name">尚未添加壁纸（支持多选 mp4/webm/mov/gif/png）</div>`;
+      return;
+    }
+    wrap.innerHTML = wallpaperList
+      .map((w) => {
+        const active = w.id === state.activeWallpaperId && state.scene === "wallpaper";
+        const shortName = String(w.name || "壁纸").slice(0, 26);
+        return `<div class="agy-wp-item ${active ? "active" : ""}" data-wp-id="${w.id}">
+          <span class="agy-wp-title" title="${w.name || ""}">${active ? "▶ " : ""}${shortName}</span>
+          <button type="button" class="agy-wp-del" data-wp-del="${w.id}" title="删除">×</button>
+        </div>`;
+      })
+      .join("");
+
+    wrap.querySelectorAll(".agy-wp-item").forEach((row) => {
+      row.addEventListener("click", (e) => {
+        if (e.target && e.target.closest && e.target.closest(".agy-wp-del")) return;
+        const id = row.getAttribute("data-wp-id");
+        const found = wallpaperList.find((x) => x.id === id);
+        if (!found) return;
+        state.scene = "wallpaper";
+        mountWallpaperBlob(found);
+        applyStateToDOM();
+        syncAmbientAudio();
+        saveState();
+        document.querySelectorAll("#agy-theme-studio-root .agy-scene-btn").forEach((b) => {
+          b.classList.toggle("active", b.getAttribute("data-scene-id") === "wallpaper");
+        });
+      });
+    });
+
+    wrap.querySelectorAll(".agy-wp-del").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteWallpaperById(btn.getAttribute("data-wp-del")).catch(() => {});
+      });
+    });
+    syncWallpaperRotation();
+  }
+
+  // 番茄钟专注倒计时 + 顶部极细流光进度条
+  let pomoRunning = false;
+  let pomoTotalSec = state.pomoMinutes * 60;
+  let pomoRemainSec = pomoTotalSec;
+  let pomoInterval = null;
+
+  function ensurePomoBar() {
+    let bar = document.getElementById(POMO_BAR_ID);
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = POMO_BAR_ID;
+      bar.innerHTML = `<div class="agy-pomo-fill"></div>`;
+      document.body.appendChild(bar);
+    }
+    return bar;
+  }
+
+  function formatMMSS(sec) {
+    const s = Math.max(0, Math.floor(sec));
+    const m = String(Math.floor(s / 60)).padStart(2, "0");
+    const r = String(s % 60).padStart(2, "0");
+    return `${m}:${r}`;
+  }
+
+  function updatePomoUI() {
+    const bar = ensurePomoBar();
+    const fill = bar.querySelector(".agy-pomo-fill");
+    const pct = pomoTotalSec > 0 ? ((pomoTotalSec - pomoRemainSec) / pomoTotalSec) * 100 : 0;
+    bar.style.display = pomoRunning || pomoRemainSec < pomoTotalSec ? "block" : "none";
+    if (fill) fill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+
+    const readout = document.getElementById("agy-pomo-time");
+    if (readout) readout.textContent = formatMMSS(pomoRemainSec);
+    const toggleBtn = document.getElementById("agy-pomo-toggle");
+    if (toggleBtn) toggleBtn.textContent = pomoRunning ? "⏸ 暂停" : "▶ 开始专注";
+
+    const fab = document.querySelector(`#${UI_ROOT_ID} .agy-studio-fab`);
+    if (fab) {
+      fab.textContent = pomoRunning ? `🍅 ${formatMMSS(pomoRemainSec)}` : "✦ 主题";
+    }
+  }
+
+  function togglePomo() {
+    if (pomoRunning) {
+      pomoRunning = false;
+      clearInterval(pomoInterval);
+      pomoInterval = null;
+    } else {
+      if (pomoRemainSec <= 0) {
+        pomoTotalSec = state.pomoMinutes * 60;
+        pomoRemainSec = pomoTotalSec;
+      }
+      pomoRunning = true;
+      pomoInterval = setInterval(() => {
+        if (!pomoRunning) return;
+        pomoRemainSec -= 1;
+        if (pomoRemainSec <= 0) {
+          pomoRemainSec = 0;
+          pomoRunning = false;
+          clearInterval(pomoInterval);
+          pomoInterval = null;
+          triggerDonePulse();
+          playCompletionChime();
+        }
+        updatePomoUI();
+      }, 1000);
+    }
+    updatePomoUI();
+  }
+
+  function resetPomo(minutes) {
+    pomoRunning = false;
+    if (pomoInterval) {
+      clearInterval(pomoInterval);
+      pomoInterval = null;
+    }
+    if (minutes) state.pomoMinutes = minutes;
+    pomoTotalSec = state.pomoMinutes * 60;
+    pomoRemainSec = pomoTotalSec;
+    updatePomoUI();
   }
 
   const onVisibilityChange = () => {
@@ -1233,6 +1653,7 @@
         if (wallpaperEl.tagName === "VIDEO" && !document.hidden) {
           wallpaperEl.play().catch(() => {});
         }
+        if (state.autoAccent) setTimeout(sampleWallpaperAccent, 120);
       }
     } else {
       html.setAttribute("data-cosmic-bg", "on");
@@ -1243,6 +1664,14 @@
         if (wallpaperEl.tagName === "VIDEO") wallpaperEl.pause();
       }
     }
+
+    if (state.customAccent) {
+      applyAccentOverride(state.customAccent);
+    } else if (state.scene !== "wallpaper" || !state.autoAccent) {
+      applyAccentOverride("");
+    }
+
+    html.setAttribute("data-zen-mode", state.zenMode ? "on" : "off");
     html.style.setProperty("--studio-glass-alpha", String(state.alpha));
     html.style.setProperty("--studio-main-alpha", String(Math.min(0.85, state.alpha + 0.08)));
     html.style.setProperty("--studio-sidebar-blur", `${state.blur}px`);
@@ -1290,11 +1719,28 @@
 
   const onKeyDown = (e) => {
     markActive();
-    if (!state.typingSparks) return;
+    // Option+Shift+Z 一键切换禅模式
+    if (e.altKey && e.shiftKey && (e.key === "Z" || e.key === "z" || e.code === "KeyZ")) {
+      state.zenMode = !state.zenMode;
+      applyStateToDOM();
+      saveState();
+      const cb = document.getElementById("agy-fx-zen");
+      if (cb) cb.checked = state.zenMode;
+      return;
+    }
+
     const box = document.querySelector('[data-testid="agent-input-box"]');
     if (!box) return;
     const active = document.activeElement;
     if (!active || !box.contains(active)) return;
+
+    if (state.keySound && state.keySound !== "off" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (e.key.length === 1 || e.key === "Enter" || e.key === "Backspace") {
+        playKeySound(state.keySound, e.key);
+      }
+    }
+
+    if (!state.typingSparks) return;
     const rect = box.getBoundingClientRect();
     const palette = SCENE_COLORS[state.scene] || SCENE_COLORS.cyberrain;
 
@@ -1541,9 +1987,43 @@
           ).join("")}
         </div>
         <div class="agy-wp-bar">
-          <button type="button" class="agy-wp-pick-btn" id="agy-wp-pick">📁 选择本地高清视频 / 图片壁纸</button>
-          <input type="file" id="agy-wp-file" accept="video/mp4,video/webm,video/quicktime,image/*" style="display:none" />
-          <div class="agy-wp-name" id="agy-wp-name">支持 mp4 / webm / mov / gif / png，自动持久化</div>
+          <div class="agy-wp-actions">
+            <button type="button" class="agy-wp-pick-btn" id="agy-wp-pick">📁 添加本地视频 / 图片</button>
+            <button type="button" class="agy-mini-btn" id="agy-wp-next" title="切换下一张壁纸">⏭ 换一张</button>
+          </div>
+          <input type="file" id="agy-wp-file" multiple accept="video/mp4,video/webm,video/quicktime,image/*" style="display:none" />
+          <div class="agy-wp-list" id="agy-wp-list"></div>
+          <div class="agy-wp-subrow">
+            <label><input type="checkbox" id="agy-wp-rotate" ${state.wpAutoRotate ? "checked" : ""}/> 10分钟自动轮换</label>
+            <label><input type="checkbox" id="agy-auto-accent" ${state.autoAccent ? "checked" : ""}/> 🎨 自动取色</label>
+          </div>
+          <div class="agy-accent-row">
+            <span>高亮主色</span>
+            <input type="color" id="agy-accent-picker" value="${state.customAccent || "#22d3ee"}" title="自定义界面高亮色" />
+            <button type="button" class="agy-mini-btn" id="agy-accent-reset">恢复默认</button>
+          </div>
+        </div>
+        <div class="agy-studio-sec-label">禅模式与专注番茄钟</div>
+        <div class="agy-pomo-box">
+          <div class="agy-pomo-top">
+            <label><input type="checkbox" id="agy-fx-zen" ${state.zenMode ? "checked" : ""}/> 🧘 禅模式 <small>(⌥⇧Z)</small></label>
+            <span class="agy-pomo-clock" id="agy-pomo-time">${formatMMSS(pomoRemainSec)}</span>
+          </div>
+          <div class="agy-pomo-btns">
+            <button type="button" class="agy-mini-btn primary" id="agy-pomo-toggle">▶ 开始专注</button>
+            <button type="button" class="agy-mini-btn" id="agy-pomo-25">25m</button>
+            <button type="button" class="agy-mini-btn" id="agy-pomo-50">50m</button>
+            <button type="button" class="agy-mini-btn" id="agy-pomo-reset">重置</button>
+          </div>
+        </div>
+        <div class="agy-studio-sec-label">机械键盘音效</div>
+        <div class="agy-key-row">
+          <select id="agy-key-sound" class="agy-select">
+            <option value="off" ${state.keySound === "off" ? "selected" : ""}>🔇 关闭按键音</option>
+            <option value="thock" ${state.keySound === "thock" ? "selected" : ""}>⌨️ 温润麻将音 (Thock)</option>
+            <option value="clicky" ${state.keySound === "clicky" ? "selected" : ""}>💠 清脆青轴 (Clicky)</option>
+            <option value="typewriter" ${state.keySound === "typewriter" ? "selected" : ""}>🎞️ 复古打字机</option>
+          </select>
         </div>
         <div class="agy-studio-sec-label">通透度与磨砂</div>
         <label class="agy-slider-row">
@@ -1599,23 +2079,87 @@
     closeBtn.addEventListener("click", () => togglePanel(false));
 
     const wpPickBtn = root.querySelector("#agy-wp-pick");
+    const wpNextBtn = root.querySelector("#agy-wp-next");
     const wpFileInput = root.querySelector("#agy-wp-file");
     wpPickBtn.addEventListener("click", () => wpFileInput.click());
+    wpNextBtn.addEventListener("click", () => nextWallpaper());
     wpFileInput.addEventListener("change", async () => {
-      const file = wpFileInput.files && wpFileInput.files[0];
-      if (!file) return;
+      const files = Array.from(wpFileInput.files || []);
+      if (files.length === 0) return;
       try {
-        await saveWallpaperFile(file);
-        state.scene = "wallpaper";
-        mountWallpaperBlob({ blob: file, name: file.name, type: file.type });
-        applyStateToDOM();
-        syncAmbientAudio();
-        saveState();
-        syncButtons();
+        const added = await addWallpaperFiles(files);
+        if (added.length > 0) {
+          state.scene = "wallpaper";
+          mountWallpaperBlob(added[added.length - 1]);
+          applyStateToDOM();
+          syncAmbientAudio();
+          saveState();
+          syncButtons();
+        }
       } catch (err) {
         console.warn("[Wallpaper] save failed:", err);
       }
       wpFileInput.value = "";
+    });
+
+    root.querySelector("#agy-wp-rotate").addEventListener("change", (e) => {
+      state.wpAutoRotate = e.target.checked;
+      syncWallpaperRotation();
+      saveState();
+    });
+
+    root.querySelector("#agy-auto-accent").addEventListener("change", (e) => {
+      state.autoAccent = e.target.checked;
+      if (state.autoAccent) {
+        state.customAccent = "";
+        sampleWallpaperAccent();
+      } else if (!state.customAccent) {
+        applyAccentOverride("");
+      }
+      saveState();
+    });
+
+    root.querySelector("#agy-accent-picker").addEventListener("input", (e) => {
+      state.customAccent = e.target.value;
+      state.autoAccent = false;
+      const autoCb = root.querySelector("#agy-auto-accent");
+      if (autoCb) autoCb.checked = false;
+      applyAccentOverride(state.customAccent);
+      saveState();
+    });
+
+    root.querySelector("#agy-accent-reset").addEventListener("click", () => {
+      state.customAccent = "";
+      applyAccentOverride("");
+      if (state.scene === "wallpaper" && state.autoAccent) {
+        sampleWallpaperAccent();
+      }
+      saveState();
+    });
+
+    root.querySelector("#agy-fx-zen").addEventListener("change", (e) => {
+      state.zenMode = e.target.checked;
+      applyStateToDOM();
+      saveState();
+    });
+
+    root.querySelector("#agy-pomo-toggle").addEventListener("click", () => togglePomo());
+    root.querySelector("#agy-pomo-25").addEventListener("click", () => {
+      resetPomo(25);
+      saveState();
+    });
+    root.querySelector("#agy-pomo-50").addEventListener("click", () => {
+      resetPomo(50);
+      saveState();
+    });
+    root.querySelector("#agy-pomo-reset").addEventListener("click", () => resetPomo());
+
+    root.querySelector("#agy-key-sound").addEventListener("change", (e) => {
+      state.keySound = e.target.value;
+      if (state.keySound !== "off") {
+        playKeySound(state.keySound, "Enter");
+      }
+      saveState();
     });
 
     root.querySelectorAll(".agy-scene-btn").forEach((btn) => {
@@ -1626,8 +2170,11 @@
         syncAmbientAudio();
         saveState();
         syncButtons();
-        if (nextScene === "wallpaper" && !wallpaperEl) {
+        if (nextScene === "wallpaper" && wallpaperList.length === 0) {
           wpFileInput.click();
+        } else if (nextScene === "wallpaper" && !wallpaperEl && wallpaperList.length > 0) {
+          const target = wallpaperList.find((w) => w.id === state.activeWallpaperId) || wallpaperList[0];
+          mountWallpaperBlob(target);
         }
       });
     });
@@ -1711,6 +2258,9 @@
     destroyed = true;
     if (rafId) cancelAnimationFrame(rafId);
     clearInterval(busyCheckTimer);
+    if (wpRotateTimer) clearInterval(wpRotateTimer);
+    if (accentSampleTimer) clearInterval(accentSampleTimer);
+    if (pomoInterval) clearInterval(pomoInterval);
     stopAmbientAudio();
     if (audioCtx) {
       try {
@@ -1738,7 +2288,7 @@
       URL.revokeObjectURL(wallpaperObjectUrl);
       wallpaperObjectUrl = null;
     }
-    [BG_CANVAS_ID, WP_MEDIA_ID, FX_CANVAS_ID, UI_ROOT_ID].forEach((id) => {
+    [BG_CANVAS_ID, WP_MEDIA_ID, FX_CANVAS_ID, POMO_BAR_ID, UI_ROOT_ID].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.remove();
     });
@@ -1747,16 +2297,29 @@
     html.removeAttribute("data-scene");
     html.removeAttribute("data-ai-busy");
     html.removeAttribute("data-ai-pulse-enabled");
+    html.removeAttribute("data-zen-mode");
+    html.removeAttribute("data-custom-accent");
   };
 
   resizeCanvases();
   applyStateToDOM();
   buildStudioUI();
-  loadWallpaperFile()
-    .then((rec) => {
-      if (rec && !destroyed) mountWallpaperBlob(rec);
+  updatePomoUI();
+  loadAllWallpapers()
+    .then((items) => {
+      if (destroyed) return;
+      renderWallpaperPlaylistUI();
+      if (items.length > 0) {
+        const chosen = items.find((w) => w.id === state.activeWallpaperId) || items[0];
+        mountWallpaperBlob(chosen);
+      }
     })
     .catch(() => {});
+  accentSampleTimer = setInterval(() => {
+    if (!destroyed && state.scene === "wallpaper" && state.autoAccent) {
+      sampleWallpaperAccent();
+    }
+  }, 4500);
 
   async function startWebGPU() {
     if (!navigator.gpu) return false;
