@@ -570,6 +570,21 @@ html[data-cosmic-bg="on"] body {
   background-color: #040611 !important;
 }
 
+/* 当内置侧边浏览器或浏览器标注开启（browser-hole）时，必须让 body 与浏览器面板完全透明，
+   否则会遮挡底层 Electron WebContentsView 浏览器画面与标注层 */
+html[data-cosmic-bg="on"] body[data-has-browser-hole="true"],
+html[data-cosmic-bg="on"] body:has(.browser-hole-ancestor) {
+  background-color: transparent !important;
+}
+
+html[data-cosmic-bg="on"] [data-side-panel-body]:has(.browser-hole-ancestor),
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"] [data-side-panel-body]:has(.browser-hole-ancestor) {
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* 仅提升 #root 层级，绝不覆盖 React/Radix Portal 弹窗的 fixed 定位与 z-index */
 html[data-cosmic-bg="on"] #root {
   position: relative;

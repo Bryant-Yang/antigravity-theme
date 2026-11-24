@@ -1525,6 +1525,7 @@
     });
     document.body.prepend(el);
     wallpaperEl = el;
+    if (lastHoleClip) el.style.clipPath = lastHoleClip;
     if (isVideo && state.scene === "wallpaper") {
       el.play().catch(() => {});
     }
@@ -1892,8 +1893,36 @@
   let aiBusySmooth = 0;
   let wasAiBusy = false;
 
+  // 内置侧边浏览器（Electron browser-hole）动态镂空：
+  // 当侧边浏览器或浏览器标注开启时，自动在背景画布/视频上精准抠出浏览器区域，避免遮挡底层网页与标注界面
+  let lastHoleClip = "";
+  function syncBrowserHoleCutout() {
+    const sp = document.querySelector("[data-side-panel-body]");
+    let holeRect = null;
+    if (sp && sp.querySelector(".browser-hole-ancestor")) {
+      const r = sp.getBoundingClientRect();
+      if (r.width > 120 && r.height > 120) {
+        holeRect = r;
+      }
+    }
+    let clip = "none";
+    if (holeRect) {
+      const x1 = Math.max(0, Math.floor(holeRect.left));
+      const y1 = Math.max(0, Math.floor(holeRect.top));
+      const x2 = Math.ceil(holeRect.right);
+      const y2 = Math.ceil(holeRect.bottom);
+      clip = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${x1}px ${y1}px, ${x1}px ${y2}px, ${x2}px ${y2}px, ${x2}px ${y1}px, ${x1}px ${y1}px)`;
+    }
+    if (clip !== lastHoleClip) {
+      lastHoleClip = clip;
+      bgCanvas.style.clipPath = clip;
+      if (wallpaperEl) wallpaperEl.style.clipPath = clip;
+    }
+  }
+
   let busyCheckTimer = setInterval(() => {
     if (destroyed) return;
+    syncBrowserHoleCutout();
     const rawBusy = Boolean(
       document.querySelector('[data-testid="status-loading-spinner"]') ||
         document.querySelector('[data-testid="stop-button"]') ||
