@@ -960,7 +960,84 @@ html[data-cosmic-bg="on"][data-scene="inkwash"] [data-testid="agent-input-box"] 
   border-color: rgba(31, 36, 33, 0.2) !important;
 }
 html[data-cosmic-bg="on"][data-scene="inkwash"] pre {
-  background-color: rgba(240, 235, 224, 0.86) !important;
+  background-color: rgba(24, 30, 32, 0.92) !important;
+  border-color: rgba(31, 36, 33, 0.2) !important;
+}
+
+/* ==========================================================================
+   17. 浅色场景 & 极亮壁纸全局高对比深墨字保护（data-light-surface="on"）
+       彻底解决 Antigravity 深色模式下 dark:text-white 在宣纸/白雪浅底上发白看不清的问题
+   ========================================================================== */
+html[data-cosmic-bg="on"][data-light-surface="on"] {
+  color-scheme: light !important;
+  --atelier-fg: #1a211d;
+  --atelier-fg-muted: #46524c;
+  --foreground: #1a211d !important;
+  --secondary-foreground: #2c3631 !important;
+  --muted-foreground: #4c5852 !important;
+  --placeholder: #6f7c75 !important;
+  --border: rgba(26, 33, 29, 0.16) !important;
+  --card: rgba(253, 250, 244, 0.88) !important;
+  --card-border: rgba(26, 33, 29, 0.16) !important;
+  --secondary: rgba(26, 33, 29, 0.08) !important;
+  --muted: rgba(26, 33, 29, 0.05) !important;
+}
+
+/* 强制浅色背景下的正文、标题、列表、侧边栏与辅助面板统一使用浓墨深色字 */
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body],
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] p,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] li,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] h1,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] h2,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] h3,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] strong,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] span:not(pre span),
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-side-panel-body],
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-side-panel-body] span:not(pre span),
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="conversation-row-sidebar"],
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="new-conversation-button"] {
+  color: #1a211d !important;
+  text-shadow: none !important;
+}
+
+/* 行内代码胶囊改为浅宣纸暖石底 + 朱砂深墨字 */
+html[data-cosmic-bg="on"][data-light-surface="on"] code:not(pre code) {
+  background-color: rgba(26, 33, 29, 0.1) !important;
+  color: #9e331f !important;
+  border: 1px solid rgba(26, 33, 29, 0.14) !important;
+}
+
+/* 代码块保持高级深墨石板底，完整保留亮色语法高亮对比度 */
+html[data-cosmic-bg="on"][data-light-surface="on"] pre {
+  background-color: rgba(24, 30, 34, 0.93) !important;
+  color: #eef2f6 !important;
+  border-color: rgba(26, 33, 29, 0.22) !important;
+}
+html[data-cosmic-bg="on"][data-light-surface="on"] pre code {
+  color: #eef2f6 !important;
+}
+
+/* 浅色场景下的输入框与用户气泡统一为温润宣纸白卡片 + 深墨字 */
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"] {
+  background-color: rgba(255, 252, 246, 0.92) !important;
+  border-color: rgba(26, 33, 29, 0.22) !important;
+  color: #1a211d !important;
+  box-shadow: 0 8px 26px rgba(26, 33, 29, 0.12) !important;
+}
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"] *,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"] [contenteditable="true"] {
+  color: #1a211d !important;
+}
+
+/* 浅色场景下的主画布与侧边栏保持清透宣纸托底 */
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body],
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-side-panel-body] {
+  background: rgba(248, 244, 236, var(--studio-main-alpha, 0.34)) !important;
+}
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  background: rgba(248, 244, 236, var(--studio-glass-alpha, 0.32)) !important;
+  border-color: rgba(26, 33, 29, 0.16) !important;
 }
 html[data-cosmic-bg="on"][data-scene="inkwash"] [role="dialog"],
 html[data-cosmic-bg="on"][data-scene="inkwash"] [role="menu"],
@@ -1490,7 +1567,7 @@ html[data-zen-mode="on"] [data-testid="sidebar-split"] > :first-child {
    16. 优雅自适应视觉友好（Adaptive Visual Comfort · VisionOS 光学可读性）
        在保留动态壁纸通透感的同时，根据画面实时亮度与对比度自动抬升文字与卡片清晰度
    ========================================================================== */
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) {
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) {
   --foreground: #f8faff !important;
   --secondary-foreground: #e6edf8 !important;
   --muted-foreground: rgba(226, 234, 248, 0.82) !important;
@@ -1505,7 +1582,7 @@ html[data-cosmic-bg="on"][data-scene="wallpaper"][data-adaptive-comfort="on"] #a
 }
 
 /* 主对话区柔光阅读通道：中间文字区温和托底，四周保持壁纸通透，模糊度完全交由「画面模糊」滑块控制（默认 0px 锐利清晰） */
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] {
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-main-content-body] {
   background: linear-gradient(
     90deg,
     rgba(6, 10, 20, calc(var(--studio-adaptive-scrim, 0.42) * 0.58)) 0%,
@@ -1519,7 +1596,7 @@ html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]
 }
 
 /* 右侧辅助面板同步自适应托底与用户可控模糊 */
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-side-panel-body] {
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-side-panel-body] {
   background-color: rgba(8, 12, 24, var(--studio-adaptive-scrim, 0.44)) !important;
   backdrop-filter: blur(var(--studio-main-blur, 0px)) !important;
   -webkit-backdrop-filter: blur(var(--studio-main-blur, 0px)) !important;

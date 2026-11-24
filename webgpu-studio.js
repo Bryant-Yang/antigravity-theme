@@ -1465,7 +1465,9 @@
         const avgLuma = lumaSum / Math.max(pixelCount, 1);
         const variance = Math.max(0, lumaSqSum / Math.max(pixelCount, 1) - avgLuma * avgLuma);
         const stdDev = Math.sqrt(variance);
-        // 画面越亮或对比越复杂，仅柔和抬升遮罩浓度，不擅自把画面糊掉（模糊度完全由用户滑块控制）
+        // 极亮浅色壁纸（如雪景/白底插画 avgLuma > 0.62）自动切入浅底深墨字模式
+        const isBrightWallpaper = avgLuma > 0.62;
+        html.setAttribute("data-light-surface", isBrightWallpaper ? "on" : "off");
         const baseAlpha = Number(state.alpha) || 0.24;
         const adaptiveScrim = Math.min(0.58, Math.max(baseAlpha + 0.06, 0.22 + avgLuma * 0.36 + stdDev * 0.28));
         const chipAlpha = Math.min(0.76, Math.max(0.54, adaptiveScrim + 0.16));
@@ -1733,6 +1735,15 @@
 
     html.setAttribute("data-zen-mode", state.zenMode ? "on" : "off");
     html.setAttribute("data-adaptive-comfort", state.adaptiveComfort ? "on" : "off");
+
+    const nowHr = new Date().getHours() + new Date().getMinutes() / 60;
+    const isCircadianDay = state.scene === "circadian" && nowHr >= 7.5 && nowHr <= 16.8;
+    const isLightScene = state.scene === "inkwash" || isCircadianDay;
+    if (state.scene !== "wallpaper") {
+      html.setAttribute("data-light-surface", isLightScene ? "on" : "off");
+    } else if (!state.adaptiveComfort) {
+      html.setAttribute("data-light-surface", "off");
+    }
     html.style.setProperty("--studio-glass-alpha", String(state.alpha));
     html.style.setProperty("--studio-main-alpha", String(Math.min(0.85, state.alpha + 0.08)));
     html.style.setProperty("--studio-main-blur", `${state.mainBlur}px`);
@@ -2464,6 +2475,7 @@
     html.removeAttribute("data-ai-pulse-enabled");
     html.removeAttribute("data-zen-mode");
     html.removeAttribute("data-custom-accent");
+    html.removeAttribute("data-light-surface");
   };
 
   resizeCanvases();
