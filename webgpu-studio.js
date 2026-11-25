@@ -34,6 +34,7 @@
     ecoMode: true,
     lightning: true,
     aiPulse: true,
+    spotlight: true,
     typingSparks: true,
     clickRipple: true,
     cursorTrail: false,
@@ -1736,6 +1737,7 @@
 
     html.setAttribute("data-zen-mode", state.zenMode ? "on" : "off");
     html.setAttribute("data-adaptive-comfort", state.adaptiveComfort ? "on" : "off");
+    html.setAttribute("data-spotlight", state.spotlight ? "on" : "off");
 
     const nowHr = new Date().getHours() + new Date().getMinutes() / 60;
     const isCircadianDay = state.scene === "circadian" && nowHr >= 7.5 && nowHr <= 16.8;
@@ -1769,10 +1771,54 @@
     lastActivityTime = performance.now();
   };
 
+  // VisionOS / Linear 级光标边框聚光灯：每帧最多更新一次，靠近 140px 即平滑点亮金属玻璃高光边框
+  const SPOTLIGHT_SELECTOR = [
+    '[data-testid="sidebar-split"] .contents > .bg-sidebar',
+    '[data-testid="agent-input-box"]',
+    '[data-testid="overview-panel-host-gutter"]',
+    '[data-testid="new-conversation-button"]',
+    '#agy-theme-studio-root .agy-studio-panel[data-open="true"]',
+    '[data-main-content-body] pre',
+  ].join(",");
+
+  let spotRafPending = false;
+  let lastSpotX = -999;
+  let lastSpotY = -999;
+
+  function updateSpotlightTargets() {
+    spotRafPending = false;
+    if (destroyed || !state.spotlight) return;
+    const nodes = document.querySelectorAll(SPOTLIGHT_SELECTOR);
+    const pad = 140;
+    for (let i = 0; i < nodes.length; i += 1) {
+      const el = nodes[i];
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      const near =
+        lastSpotX >= r.left - pad &&
+        lastSpotX <= r.right + pad &&
+        lastSpotY >= r.top - pad &&
+        lastSpotY <= r.bottom + pad;
+      if (near) {
+        el.style.setProperty("--spot-x", `${(lastSpotX - r.left).toFixed(1)}px`);
+        el.style.setProperty("--spot-y", `${(lastSpotY - r.top).toFixed(1)}px`);
+        el.style.setProperty("--spot-o", "1");
+      } else if (el.style.getPropertyValue("--spot-o") === "1") {
+        el.style.setProperty("--spot-o", "0");
+      }
+    }
+  }
+
   const onMouseMove = (e) => {
     markActive();
     cursorClientX = e.clientX;
     cursorClientY = e.clientY;
+    lastSpotX = e.clientX;
+    lastSpotY = e.clientY;
+    if (state.spotlight && !spotRafPending) {
+      spotRafPending = true;
+      requestAnimationFrame(updateSpotlightTargets);
+    }
     targetMouseX = e.clientX / Math.max(window.innerWidth, 1);
     targetMouseY = 1.0 - e.clientY / Math.max(window.innerHeight, 1);
     document.documentElement.style.setProperty("--cursor-x", `${e.clientX}px`);
@@ -2234,6 +2280,7 @@
           <label><input type="checkbox" id="agy-fx-eco" ${state.ecoMode ? "checked" : ""}/> 🔋 省电模式</label>
           <label><input type="checkbox" id="agy-fx-lightning" ${state.lightning ? "checked" : ""}/> ⚡ 雨夜闪电</label>
           <label><input type="checkbox" id="agy-fx-aipulse" ${state.aiPulse ? "checked" : ""}/> ✨ AI 流光环</label>
+          <label><input type="checkbox" id="agy-fx-spotlight" ${state.spotlight ? "checked" : ""}/> 💎 边框聚光灯</label>
           <label><input type="checkbox" id="agy-fx-sparks" ${state.typingSparks ? "checked" : ""}/> ⌨️ 打字火花</label>
           <label><input type="checkbox" id="agy-fx-ripple" ${state.clickRipple ? "checked" : ""}/> 💧 点击涟漪</label>
           <label><input type="checkbox" id="agy-fx-trail" ${state.cursorTrail ? "checked" : ""}/> ☄️ 鼠标轨迹</label>
@@ -2445,6 +2492,11 @@
       applyStateToDOM();
       saveState();
     });
+    root.querySelector("#agy-fx-spotlight").addEventListener("change", (e) => {
+      state.spotlight = e.target.checked;
+      applyStateToDOM();
+      saveState();
+    });
     root.querySelector("#agy-fx-sparks").addEventListener("change", (e) => {
       state.typingSparks = e.target.checked;
       saveState();
@@ -2535,6 +2587,7 @@
     html.removeAttribute("data-zen-mode");
     html.removeAttribute("data-custom-accent");
     html.removeAttribute("data-light-surface");
+    html.removeAttribute("data-spotlight");
   };
 
   resizeCanvases();

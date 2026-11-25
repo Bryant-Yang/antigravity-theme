@@ -1639,6 +1639,65 @@ html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]
   text-shadow: none !important;
 }
 
+/* ==========================================================================
+   18. VisionOS / Linear 级光标边框聚光灯（data-spotlight="on"）
+       仅在光标靠近容器边缘 140px 内平滑点亮金属玻璃边框高光，零排版抖动
+   ========================================================================== */
+html[data-spotlight="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar,
+html[data-spotlight="on"] [data-testid="agent-input-box"],
+html[data-spotlight="on"] [data-testid="overview-panel-host-gutter"],
+html[data-spotlight="on"] [data-testid="new-conversation-button"],
+html[data-spotlight="on"] #agy-theme-studio-root .agy-studio-panel[data-open="true"],
+html[data-spotlight="on"] [data-main-content-body] pre {
+  position: relative;
+}
+
+/* Overview Panel 保持原 absolute 定位不被 position: relative 覆盖 */
+html[data-spotlight="on"] [data-testid="overview-panel-host-gutter"],
+html[data-spotlight="on"] #agy-theme-studio-root .agy-studio-panel[data-open="true"] {
+  position: absolute !important;
+}
+
+html[data-spotlight="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar::after,
+html[data-spotlight="on"] [data-testid="agent-input-box"]::after,
+html[data-spotlight="on"] [data-testid="overview-panel-host-gutter"]::after,
+html[data-spotlight="on"] [data-testid="new-conversation-button"]::after,
+html[data-spotlight="on"] #agy-theme-studio-root .agy-studio-panel[data-open="true"]::after,
+html[data-spotlight="on"] [data-main-content-body] pre::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  z-index: 30;
+  opacity: var(--spot-o, 0);
+  transition: opacity 220ms ease;
+  background: radial-gradient(
+    200px circle at var(--spot-x, -999px) var(--spot-y, -999px),
+    rgba(255, 255, 255, 0.78) 0%,
+    color-mix(in srgb, var(--primary) 72%, transparent) 34%,
+    transparent 74%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* 浅色水墨/白昼模式下使用克制的深墨+朱砂微光边框 */
+html[data-spotlight="on"][data-light-surface="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar::after,
+html[data-spotlight="on"][data-light-surface="on"] [data-testid="agent-input-box"]::after,
+html[data-spotlight="on"][data-light-surface="on"] [data-testid="overview-panel-host-gutter"]::after,
+html[data-spotlight="on"][data-light-surface="on"] [data-testid="new-conversation-button"]::after,
+html[data-spotlight="on"][data-light-surface="on"] [data-main-content-body] pre::after {
+  background: radial-gradient(
+    200px circle at var(--spot-x, -999px) var(--spot-y, -999px),
+    color-mix(in srgb, var(--primary) 90%, #1a211d) 0%,
+    color-mix(in srgb, var(--primary) 42%, transparent) 42%,
+    transparent 74%
+  );
+}
+
 /* 避免岛内列表及粘性分组头重复叠加模糊层 */
 [data-testid="sidebar-split"] [data-testid="conversation-list-sidebar"],
 [data-testid="sidebar-split"] [data-testid="conversation-list-sidebar"] .bg-sidebar {
