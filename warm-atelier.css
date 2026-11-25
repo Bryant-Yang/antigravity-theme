@@ -1357,6 +1357,14 @@ html[data-custom-accent="on"] [data-testid="sidebar-split"] .contents > .bg-side
 html[data-zen-mode="on"] {
   --max-conversation-width: var(--studio-chat-width, 1160px) !important;
 }
+
+/* 当右侧 Overview Panel 展开时，对话区右侧自动让出其宽度（320px + 16px 间距），
+   无论对话宽度调到多大或满宽都不会被遮挡；关闭 Overview Panel 后自动恢复全宽 */
+[data-testid="overview-panel-host"]:has([data-testid="overview-panel-host-gutter"]) {
+  padding-right: 336px !important;
+  box-sizing: border-box !important;
+  transition: padding-right 180ms ease !important;
+}
 html[data-zen-mode="on"] [data-testid="sidebar-split"] > :first-child {
   display: none !important;
 }
