@@ -1749,8 +1749,7 @@
     html.style.setProperty("--studio-main-alpha", String(Math.min(0.85, state.alpha + 0.08)));
     html.style.setProperty("--studio-main-blur", `${state.mainBlur}px`);
     html.style.setProperty("--studio-sidebar-blur", `${state.blur}px`);
-    const cw = Number(state.chatWidth) || 1080;
-    html.style.setProperty("--studio-chat-width", cw >= 1560 ? "100%" : `${cw}px`);
+    syncChatWidthSlider();
     if (state.scene !== "wallpaper") {
       html.style.setProperty("--studio-adaptive-scrim", String(Math.min(0.6, state.alpha + 0.1)));
       html.style.setProperty("--studio-chip-alpha", "0.56");
@@ -1907,6 +1906,46 @@
   let aiBusySmooth = 0;
   let wasAiBusy = false;
 
+  // 动态计算当前可用对话宽度有效范围（自动扣除侧边栏与已展开的 Overview Panel 宽度，消除滑块死区）
+  function getEffectiveChatWidthBounds() {
+    const host =
+      document.querySelector('[data-testid="overview-panel-host"]') ||
+      document.querySelector("[data-main-content-body]");
+    let avail = 1200;
+    if (host) {
+      const cs = getComputedStyle(host);
+      const pr = parseFloat(cs.paddingRight) || 0;
+      const pl = parseFloat(cs.paddingLeft) || 0;
+      avail = Math.floor(host.clientWidth - pr - pl - 32);
+    }
+    const maxW = Math.max(640, Math.floor(avail / 20) * 20);
+    const minW = Math.min(640, Math.max(480, maxW - 120));
+    return { minW, maxW };
+  }
+
+  function syncChatWidthSlider() {
+    const { minW, maxW } = getEffectiveChatWidthBounds();
+    const isFull = state.chatWidth === "full" || Number(state.chatWidth) >= maxW;
+    const effectiveVal = isFull ? maxW : Math.min(maxW, Math.max(minW, Number(state.chatWidth) || 1080));
+    document.documentElement.style.setProperty(
+      "--studio-chat-width",
+      isFull ? "100%" : `${effectiveVal}px`
+    );
+
+    const sl = document.getElementById("agy-sl-chatw");
+    const valEl = document.getElementById("agy-val-chatw");
+    if (sl) {
+      if (Number(sl.min) !== minW) sl.min = String(minW);
+      if (Number(sl.max) !== maxW) sl.max = String(maxW);
+      if (Number(sl.value) !== effectiveVal) sl.value = String(effectiveVal);
+      sl.title = `当前有效范围: ${minW}px ~ ${maxW}px`;
+    }
+    if (valEl) {
+      valEl.textContent = isFull ? `满宽` : `${effectiveVal}`;
+      valEl.title = `有效上限 ${maxW}px`;
+    }
+  }
+
   // 内置侧边浏览器（Electron browser-hole）动态镂空：
   // 当侧边浏览器或浏览器标注开启时，自动在背景画布/视频上精准抠出浏览器区域，避免遮挡底层网页与标注界面
   let lastHoleClip = "";
@@ -1937,6 +1976,7 @@
   let busyCheckTimer = setInterval(() => {
     if (destroyed) return;
     syncBrowserHoleCutout();
+    syncChatWidthSlider();
     const rawBusy = Boolean(
       document.querySelector('[data-testid="status-loading-spinner"]') ||
         document.querySelector('[data-testid="stop-button"]') ||
@@ -2226,6 +2266,7 @@
     const togglePanel = (open) => {
       state.panelOpen = typeof open === "boolean" ? open : !state.panelOpen;
       panel.setAttribute("data-open", state.panelOpen ? "true" : "false");
+      if (state.panelOpen) syncChatWidthSlider();
     };
 
     fab.addEventListener("click", () => togglePanel());
@@ -2381,13 +2422,14 @@
     });
 
     const slChatW = root.querySelector("#agy-sl-chatw");
-    const valChatW = root.querySelector("#agy-val-chatw");
     slChatW.addEventListener("input", () => {
-      state.chatWidth = Number(slChatW.value);
-      valChatW.textContent = state.chatWidth >= 1560 ? "满宽" : `${state.chatWidth}`;
-      applyStateToDOM();
+      const { maxW } = getEffectiveChatWidthBounds();
+      const v = Number(slChatW.value);
+      state.chatWidth = v >= maxW ? "full" : v;
+      syncChatWidthSlider();
       saveState();
     });
+    syncChatWidthSlider();
 
     root.querySelector("#agy-fx-eco").addEventListener("change", (e) => {
       state.ecoMode = e.target.checked;
