@@ -30,6 +30,7 @@
     alpha: 0.24,
     mainBlur: 0,
     blur: 5,
+    chatWidth: 1080, // 720 ~ 1560，>= 1560 视为 100% 满宽
     ecoMode: true,
     lightning: true,
     aiPulse: true,
@@ -1748,6 +1749,8 @@
     html.style.setProperty("--studio-main-alpha", String(Math.min(0.85, state.alpha + 0.08)));
     html.style.setProperty("--studio-main-blur", `${state.mainBlur}px`);
     html.style.setProperty("--studio-sidebar-blur", `${state.blur}px`);
+    const cw = Number(state.chatWidth) || 1080;
+    html.style.setProperty("--studio-chat-width", cw >= 1560 ? "100%" : `${cw}px`);
     if (state.scene !== "wallpaper") {
       html.style.setProperty("--studio-adaptive-scrim", String(Math.min(0.6, state.alpha + 0.1)));
       html.style.setProperty("--studio-chip-alpha", "0.56");
@@ -2181,6 +2184,11 @@
           <input type="range" id="agy-sl-blur" min="0" max="24" step="1" value="${state.blur}" />
           <em id="agy-val-blur">${state.blur}px</em>
         </label>
+        <label class="agy-slider-row">
+          <span>对话宽度</span>
+          <input type="range" id="agy-sl-chatw" min="720" max="1560" step="20" value="${state.chatWidth}" />
+          <em id="agy-val-chatw">${state.chatWidth >= 1560 ? "满宽" : `${state.chatWidth}`}</em>
+        </label>
         <div class="agy-studio-sec-label">交互与氛围特效</div>
         <div class="agy-toggles">
           <label><input type="checkbox" id="agy-fx-eco" ${state.ecoMode ? "checked" : ""}/> 🔋 省电模式</label>
@@ -2368,6 +2376,15 @@
     slBlur.addEventListener("input", () => {
       state.blur = Number(slBlur.value);
       valBlur.textContent = `${state.blur}px`;
+      applyStateToDOM();
+      saveState();
+    });
+
+    const slChatW = root.querySelector("#agy-sl-chatw");
+    const valChatW = root.querySelector("#agy-val-chatw");
+    slChatW.addEventListener("input", () => {
+      state.chatWidth = Number(slChatW.value);
+      valChatW.textContent = state.chatWidth >= 1560 ? "满宽" : `${state.chatWidth}`;
       applyStateToDOM();
       saveState();
     });

@@ -36,7 +36,7 @@
   --atelier-radius-sm: 8px;
   --atelier-radius-md: 12px;
   --atelier-radius-lg: 18px;
-  --max-conversation-width: 780px !important;
+  --max-conversation-width: var(--studio-chat-width, 1080px) !important;
 }
 
 /* ==========================================================================
@@ -1353,9 +1353,9 @@ html[data-custom-accent="on"] [data-testid="sidebar-split"] .contents > .bg-side
   border-color: color-mix(in srgb, var(--studio-custom-accent) 34%, rgba(255, 255, 255, 0.14)) !important;
 }
 
-/* 禅模式（一键隐藏左侧导航栏 + 拓宽对话阅读区） */
+/* 禅模式（一键隐藏左侧导航栏 + 保持或拓宽对话阅读区） */
 html[data-zen-mode="on"] {
-  --max-conversation-width: 920px !important;
+  --max-conversation-width: var(--studio-chat-width, 1160px) !important;
 }
 html[data-zen-mode="on"] [data-testid="sidebar-split"] > :first-child {
   display: none !important;
