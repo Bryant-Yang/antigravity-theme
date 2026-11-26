@@ -40,11 +40,6 @@ node scripts/agy-theme.mjs uninstall-daemon          # 卸载后台守护
 - **视觉与护眼**：自适应亮度护眼、透明度 / 画面模糊 / 侧栏磨砂、对话区宽度滑块、禅模式（`⌥⇧Z`）、番茄钟光带
 - **交互与音效**：省电模式、光标边框聚光灯、AI 流光环、打字火花、点击涟漪、鼠标轨迹、星尘星座、完成提示音、氛围白噪音、机械键盘音效（Thock / Clicky / 打字机，支持中文输入法与独立音量）
 
-## 兼容说明
-
-- **BetterGravity**：可直接复制 `warm-atelier.css` 到 BetterGravity 的 `themes/` 目录作为静态主题使用。
-- **本地预览**：运行 `open ./preview.html` 查看纯色主题预览。
-
 ## License
 
 MIT
