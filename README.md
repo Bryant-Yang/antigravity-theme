@@ -11,7 +11,7 @@
 环境要求：macOS、Node.js `>= 22`（无需 `npm install`）、Google Antigravity `2.x`。
 
 ```bash
-# 1. 一键启动并应用（也可在 Finder 双击「启动 Warm Atelier.command」）
+# 1. 一键启动并应用（也可在 Finder 双击 start-theme.command）
 node scripts/agy-theme.mjs relaunch
 
 # 2. 开启后台自动挂载（推荐，重启或刷新页面自动恢复）
@@ -25,7 +25,7 @@ node scripts/agy-theme.mjs inject                    # 热注入当前配置
 node scripts/agy-theme.mjs inject --scene blackhole  # 指定场景切换
 node scripts/agy-theme.mjs watch                     # 改 CSS 自动热重载
 node scripts/agy-theme.mjs status                    # 查看运行状态
-node scripts/agy-theme.mjs remove                    # 一键还原原厂界面
+node scripts/agy-theme.mjs remove                    # 一键还原原厂界面（或双击 restore-default.command）
 node scripts/agy-theme.mjs uninstall-daemon          # 卸载后台守护
 ```
 
