@@ -584,6 +584,15 @@ html[data-cosmic-bg="on"][data-adaptive-comfort="on"] body[data-has-browser-hole
   -webkit-backdrop-filter: none !important;
 }
 
+/* 当右侧原生浏览器开启（body[data-has-browser-hole="true"]）时，禁止 Antigravity 原生规则把
+   中间聊天区的 .browser-hole-opaque 与 [data-tiling-pane] 涂成实心底色或实心渐变 */
+html[data-cosmic-bg="on"] body[data-has-browser-hole="true"] .browser-hole-opaque,
+html[data-cosmic-bg="on"] body[data-has-browser-hole="true"] [data-tiling-pane],
+html[data-cosmic-bg="on"] body[data-has-browser-hole="true"] [data-tiling-pane] > [data-pane-id] {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
 /* 仅提升 #root 层级，绝不覆盖 React/Radix Portal 弹窗的 fixed 定位与 z-index */
 html[data-cosmic-bg="on"] #root {
   position: relative;
