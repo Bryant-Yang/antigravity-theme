@@ -35,7 +35,6 @@
     lightning: true,
     aiPulse: true,
     spotlight: true,
-    edgeWave: true,
     typingSparks: true,
     clickRipple: true,
     cursorTrail: false,
@@ -1845,14 +1844,8 @@
     });
   };
 
-  let waveEnergy = 0.12;
-  let wavePhase = 0;
-
   const onKeyDown = (e) => {
     markActive();
-    if (state.edgeWave) {
-      waveEnergy = Math.min(1.0, waveEnergy + (e.key === "Enter" ? 0.55 : 0.28));
-    }
     // Option+Shift+Z 一键切换禅模式
     if (e.altKey && e.shiftKey && (e.key === "Z" || e.key === "z" || e.code === "KeyZ")) {
       state.zenMode = !state.zenMode;
@@ -2056,12 +2049,7 @@
 
   function renderFxOverlay() {
     if (!fxCtx) return;
-    const needDraw =
-      sparks.length > 0 ||
-      ripples.length > 0 ||
-      cursorTrail.length > 0 ||
-      state.constellation ||
-      state.edgeWave;
+    const needDraw = sparks.length > 0 || ripples.length > 0 || cursorTrail.length > 0 || state.constellation;
     if (!needDraw) {
       if (fxCanvas.dataset.dirty === "1") {
         fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
@@ -2073,57 +2061,7 @@
     fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
 
     const palette = SCENE_COLORS[state.scene] || SCENE_COLORS.cyberrain;
-    const customHex = document.documentElement.style.getPropertyValue("--studio-custom-accent").trim();
-    const accent = customHex || palette[0];
-
-    // 0. 窗口底缘极简声波律动条（随敲键盘与 AI 流式思考自然起伏，两端柔和渐隐）
-    if (state.edgeWave) {
-      const targetEnergy = aiBusySmooth > 0.08 ? 0.42 + aiBusySmooth * 0.45 : 0.1;
-      waveEnergy += (targetEnergy - waveEnergy) * 0.06;
-      wavePhase += 0.045 + waveEnergy * 0.085;
-
-      const w = fxCanvas.width;
-      const h = fxCanvas.height;
-      const baseY = h - 3;
-      const grad = fxCtx.createLinearGradient(0, 0, w, 0);
-      grad.addColorStop(0, "transparent");
-      grad.addColorStop(0.14, accent);
-      grad.addColorStop(0.5, palette[1] || accent);
-      grad.addColorStop(0.86, accent);
-      grad.addColorStop(1, "transparent");
-
-      const layers = [
-        { freq: 0.011, speed: 1.0, amp: 14, alpha: 0.52, lw: 1.8 },
-        { freq: 0.019, speed: -1.35, amp: 9, alpha: 0.34, lw: 1.3 },
-        { freq: 0.007, speed: 0.72, amp: 18, alpha: 0.2, lw: 2.4 },
-      ];
-
-      for (let l = 0; l < layers.length; l += 1) {
-        const ly = layers[l];
-        const amp = ly.amp * waveEnergy;
-        fxCtx.save();
-        fxCtx.beginPath();
-        const step = 12;
-        for (let x = 0; x <= w; x += step) {
-          const nx = x / Math.max(w, 1);
-          const env = Math.sin(nx * Math.PI); // 窗口中心饱满，左右边缘自然归零
-          const yOff =
-            Math.abs(Math.sin(x * ly.freq + wavePhase * ly.speed) * Math.cos(x * ly.freq * 0.43 - wavePhase * 0.6)) *
-            amp *
-            env;
-          const y = baseY - yOff;
-          if (x === 0) fxCtx.moveTo(x, y);
-          else fxCtx.lineTo(x, y);
-        }
-        fxCtx.strokeStyle = grad;
-        fxCtx.globalAlpha = ly.alpha;
-        fxCtx.lineWidth = ly.lw;
-        fxCtx.shadowColor = accent;
-        fxCtx.shadowBlur = 10;
-        fxCtx.stroke();
-        fxCtx.restore();
-      }
-    }
+    const accent = palette[0];
 
     // 1. 鼠标彗尾轨迹（独立开关，默认关闭）
     if (cursorTrail.length > 0) {
@@ -2343,7 +2281,6 @@
           <label><input type="checkbox" id="agy-fx-lightning" ${state.lightning ? "checked" : ""}/> ⚡ 雨夜闪电</label>
           <label><input type="checkbox" id="agy-fx-aipulse" ${state.aiPulse ? "checked" : ""}/> ✨ AI 流光环</label>
           <label><input type="checkbox" id="agy-fx-spotlight" ${state.spotlight ? "checked" : ""}/> 💎 边框聚光灯</label>
-          <label><input type="checkbox" id="agy-fx-edgewave" ${state.edgeWave ? "checked" : ""}/> 🌊 底缘声波</label>
           <label><input type="checkbox" id="agy-fx-sparks" ${state.typingSparks ? "checked" : ""}/> ⌨️ 打字火花</label>
           <label><input type="checkbox" id="agy-fx-ripple" ${state.clickRipple ? "checked" : ""}/> 💧 点击涟漪</label>
           <label><input type="checkbox" id="agy-fx-trail" ${state.cursorTrail ? "checked" : ""}/> ☄️ 鼠标轨迹</label>
@@ -2558,10 +2495,6 @@
     root.querySelector("#agy-fx-spotlight").addEventListener("change", (e) => {
       state.spotlight = e.target.checked;
       applyStateToDOM();
-      saveState();
-    });
-    root.querySelector("#agy-fx-edgewave").addEventListener("change", (e) => {
-      state.edgeWave = e.target.checked;
       saveState();
     });
     root.querySelector("#agy-fx-sparks").addEventListener("change", (e) => {
