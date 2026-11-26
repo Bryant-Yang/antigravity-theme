@@ -1993,14 +1993,18 @@
   }
 
   // 内置侧边浏览器（Electron browser-hole）动态镂空：
-  // 当侧边浏览器或浏览器标注开启时，自动在背景画布/视频上精准抠出浏览器区域，避免遮挡底层网页与标注界面
+  // 仅当 body[data-has-browser-hole="true"] 真正激活原生浏览器视图时才抠出浏览器矩形，
+  // 切到 Side Question / 文件 / 终端等标签时自动恢复完整动态背景
   let lastHoleClip = "";
   function syncBrowserHoleCutout() {
-    const sp = document.querySelector("[data-side-panel-body]");
+    const isBrowserHoleActive =
+      document.body.getAttribute("data-has-browser-hole") === "true" ||
+      Boolean(document.querySelector('[data-side-panel-body] [data-has-browser-hole="true"]'));
+    const sp = isBrowserHoleActive ? document.querySelector("[data-side-panel-body]") : null;
     let holeRect = null;
-    if (sp && sp.querySelector(".browser-hole-ancestor")) {
+    if (sp) {
       const r = sp.getBoundingClientRect();
-      if (r.width > 120 && r.height > 120) {
+      if (r.width > 120 && r.height > 120 && r.left < window.innerWidth) {
         holeRect = r;
       }
     }

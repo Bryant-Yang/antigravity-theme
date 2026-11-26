@@ -570,15 +570,14 @@ html[data-cosmic-bg="on"] body {
   background-color: #040611 !important;
 }
 
-/* 当内置侧边浏览器或浏览器标注开启（browser-hole）时，必须让 body 与浏览器面板完全透明，
-   否则会遮挡底层 Electron WebContentsView 浏览器画面与标注层 */
-html[data-cosmic-bg="on"] body[data-has-browser-hole="true"],
-html[data-cosmic-bg="on"] body:has(.browser-hole-ancestor) {
+/* 仅当原生浏览器视图真正激活（body[data-has-browser-hole="true"]）时才让浏览器面板完全透明，
+   Side Question / 文件 / 终端标签正常显示半透明主题背景 */
+html[data-cosmic-bg="on"] body[data-has-browser-hole="true"] {
   background-color: transparent !important;
 }
 
-html[data-cosmic-bg="on"] [data-side-panel-body]:has(.browser-hole-ancestor),
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"] [data-side-panel-body]:has(.browser-hole-ancestor) {
+html[data-cosmic-bg="on"] body[data-has-browser-hole="true"] [data-side-panel-body],
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"] body[data-has-browser-hole="true"] [data-side-panel-body] {
   background: transparent !important;
   background-color: transparent !important;
   backdrop-filter: none !important;
