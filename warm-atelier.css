@@ -1379,6 +1379,17 @@ html[data-zen-mode="on"] {
   box-sizing: border-box !important;
   transition: padding-right 180ms ease !important;
 }
+
+/* 修复 Markdown 表格在分屏/宽列下因原生 margin-inline-start: 50% + bleed transform 发生右偏裁切的问题，
+   统一与正文左对齐并贴合当前对话列宽，超宽表格由 .md-table-scroll 横向滚动 */
+.md-table-bleed .md-table-host[data-width-mode],
+.md-table-bleed .md-table-host {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  margin-inline-start: 0 !important;
+  transform: none !important;
+}
 html[data-zen-mode="on"] [data-testid="sidebar-split"] > :first-child {
   display: none !important;
 }
