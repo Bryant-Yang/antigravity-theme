@@ -741,8 +741,22 @@ html[data-cosmic-bg="on"] [data-side-panel-body] {
 }
 
 html[data-cosmic-bg="on"] [data-side-panel-body] .bg-background,
-html[data-cosmic-bg="on"] [data-testid="subagent-tab-sidebar"] {
+html[data-cosmic-bg="on"] [data-side-panel-body] .bg-content,
+html[data-cosmic-bg="on"] [data-main-content-body] .bg-content,
+html[data-cosmic-bg="on"] [data-tiling-pane] .bg-background,
+html[data-cosmic-bg="on"] [data-tiling-pane] .bg-content,
+html[data-cosmic-bg="on"] [data-testid="subagent-tab-sidebar"],
+html[data-cosmic-bg="on"] [data-testid*="side-question" i],
+html[data-cosmic-bg="on"] [data-testid*="side-chat" i] {
   background-color: transparent !important;
+}
+
+/* 右侧侧边聊天 / Side Question / 分屏标签页内的输入框同步使用玻璃态 */
+html[data-cosmic-bg="on"] [data-side-panel-body] [data-testid="agent-input-box"],
+html[data-cosmic-bg="on"] [data-tiling-pane] [data-testid="agent-input-box"] {
+  background-color: rgba(13, 18, 38, 0.66) !important;
+  backdrop-filter: blur(18px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(145%) !important;
 }
 
 /* ==========================================================================
