@@ -707,10 +707,10 @@ html[data-cosmic-bg="on"][data-scene="cyberrain"] [data-testid="agent-input-box"
        注意：必须精准命中外层 .contents > .bg-sidebar，避免误伤虚拟列表内部的粘性标题 .bg-sidebar
    ========================================================================== */
 [data-testid="sidebar-split"] .contents > .bg-sidebar {
-  margin: 10px 6px 10px 10px !important;
-  width: calc(100% - 16px) !important;
-  height: calc(100% - 20px) !important;
-  border-radius: 18px !important;
+  margin: 4px 6px 8px 4px !important;
+  width: calc(100% - 10px) !important;
+  height: calc(100% - 12px) !important;
+  border-radius: 11px 16px 16px 12px !important;
   overflow: hidden !important;
   border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.14)) !important;
   box-shadow:
