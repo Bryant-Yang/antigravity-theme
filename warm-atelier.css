@@ -1152,21 +1152,40 @@ html[data-cosmic-bg="on"][data-scene="snowfall"] [data-testid="sidebar-split"] .
 
 /* ==========================================================================
    17. 浅色场景 & 极亮壁纸全局高对比深墨字保护（data-light-surface="on"）
-       彻底解决 Antigravity 深色模式下 dark:text-white 在宣纸/白雪浅底上发白看不清的问题
+       彻底解决 Antigravity 深色模式下浅底发白/输入框发黑/侧栏发灰看不清的问题
    ========================================================================== */
 html[data-cosmic-bg="on"][data-light-surface="on"] {
   color-scheme: light !important;
+  --atelier-bg: rgba(248, 244, 236, 0.72);
+  --atelier-sidebar: rgba(248, 244, 236, 0.68);
+  --atelier-sidebar-hover: rgba(26, 33, 29, 0.08);
+  --atelier-card: rgba(254, 252, 248, 0.9);
+  --atelier-secondary: rgba(26, 33, 29, 0.08);
+  --atelier-muted: rgba(26, 33, 29, 0.05);
   --atelier-fg: #1a211d;
   --atelier-fg-muted: #46524c;
+  --background: #f6f2ea !important;
+  --content: #f6f2ea !important;
+  --shell: rgba(248, 244, 236, 0.62) !important;
+  --shell-canvas: transparent !important;
+  --sidebar: rgba(248, 244, 236, 0.56) !important;
+  --sidebar-secondary: rgba(26, 33, 29, 0.1) !important;
+  --sidebar-muted: rgba(26, 33, 29, 0.05) !important;
   --foreground: #1a211d !important;
   --secondary-foreground: #2c3631 !important;
   --muted-foreground: #4c5852 !important;
-  --placeholder: #6f7c75 !important;
+  --placeholder: #6b7871 !important;
   --border: rgba(26, 33, 29, 0.16) !important;
-  --card: rgba(253, 250, 244, 0.88) !important;
+  --card: rgba(254, 252, 248, 0.9) !important;
   --card-border: rgba(26, 33, 29, 0.16) !important;
   --secondary: rgba(26, 33, 29, 0.08) !important;
   --muted: rgba(26, 33, 29, 0.05) !important;
+  --glass: rgba(252, 249, 243, 0.95) !important;
+  --glass-border: rgba(26, 33, 29, 0.16) !important;
+  --onyx-frame: rgba(246, 242, 234, 0.88) !important;
+  --onyx-well: rgba(252, 249, 243, 0.92) !important;
+  --onyx-raised: rgba(255, 253, 249, 0.96) !important;
+  --onyx-key: rgba(26, 33, 29, 0.08) !important;
 }
 
 /* 强制浅色背景下的正文、标题、列表、侧边栏与辅助面板统一使用浓墨深色字 */
@@ -1181,10 +1200,26 @@ html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] span
 html[data-cosmic-bg="on"][data-light-surface="on"] [data-side-panel-body],
 html[data-cosmic-bg="on"][data-light-surface="on"] [data-side-panel-body] span:not(pre span),
 html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar button,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar a,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar span,
 html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="conversation-row-sidebar"],
-html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="new-conversation-button"] {
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="new-conversation-button"],
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="settings-button"] {
   color: #1a211d !important;
   text-shadow: none !important;
+}
+
+/* 浅色模式下侧边栏新建对话与底部 Settings 按钮改为清爽浅色玻璃胶囊 */
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="new-conversation-button"],
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="settings-button"] {
+  background-color: rgba(255, 253, 248, 0.74) !important;
+  border-color: rgba(26, 33, 29, 0.14) !important;
+  box-shadow: 0 2px 10px rgba(26, 33, 29, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
+}
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="conversation-row-sidebar"]:hover {
+  background-color: rgba(26, 33, 29, 0.07) !important;
+  border-color: rgba(26, 33, 29, 0.08) !important;
 }
 
 /* 行内代码胶囊改为浅宣纸暖石底 + 朱砂深墨字 */
@@ -1204,15 +1239,32 @@ html[data-cosmic-bg="on"][data-light-surface="on"] pre code {
   color: #eef2f6 !important;
 }
 
-/* 浅色场景下的输入框与用户气泡统一为温润宣纸白卡片 + 深墨字 */
-html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"] {
-  background-color: rgba(255, 252, 246, 0.92) !important;
-  border-color: rgba(26, 33, 29, 0.22) !important;
+/* 浅色场景下的主/侧边输入框与用户消息气泡统一为温润宣纸白卡片 + 深墨字 */
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"],
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-side-panel-body] [data-testid="agent-input-box"],
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-tiling-pane] [data-testid="agent-input-box"] {
+  background-color: rgba(255, 253, 248, 0.92) !important;
+  border-color: rgba(26, 33, 29, 0.2) !important;
   color: #1a211d !important;
-  box-shadow: 0 8px 26px rgba(26, 33, 29, 0.12) !important;
+  box-shadow: 0 8px 26px rgba(26, 33, 29, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"] > div,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"] .bg-background,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"] .bg-content,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"] .bg-card {
+  background-color: transparent !important;
 }
 html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"] *,
 html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="agent-input-box"] [contenteditable="true"] {
+  color: #1a211d !important;
+}
+
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="user-message-bubble"],
+html[data-cosmic-bg="on"][data-light-surface="on"] .agy-user-bubble,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] .bg-card,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-side-panel-body] .bg-card {
+  background-color: rgba(255, 253, 248, 0.88) !important;
+  border-color: rgba(26, 33, 29, 0.16) !important;
   color: #1a211d !important;
 }
 
@@ -1222,15 +1274,19 @@ html[data-cosmic-bg="on"][data-light-surface="on"] [data-side-panel-body] {
   background: rgba(248, 244, 236, var(--studio-main-alpha, 0.34)) !important;
 }
 html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
-  background: rgba(248, 244, 236, var(--studio-glass-alpha, 0.32)) !important;
+  background: rgba(250, 247, 240, var(--studio-glass-alpha, 0.42)) !important;
   border-color: rgba(26, 33, 29, 0.16) !important;
+  box-shadow: 0 12px 32px rgba(26, 33, 29, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.82) !important;
 }
-html[data-cosmic-bg="on"][data-scene="inkwash"] [role="dialog"],
-html[data-cosmic-bg="on"][data-scene="inkwash"] [role="menu"],
-html[data-cosmic-bg="on"][data-scene="inkwash"] [role="listbox"],
-html[data-cosmic-bg="on"][data-scene="inkwash"] [data-testid*="settings" i],
-html[data-cosmic-bg="on"][data-scene="inkwash"] [class*="settings" i] {
-  background-color: rgba(250, 246, 238, 0.96) !important;
+html[data-cosmic-bg="on"][data-light-surface="on"] [role="dialog"],
+html[data-cosmic-bg="on"][data-light-surface="on"] [role="menu"],
+html[data-cosmic-bg="on"][data-light-surface="on"] [role="listbox"],
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-radix-popper-content-wrapper] > *,
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-testid*="settings" i]:not([data-testid="settings-button"]),
+html[data-cosmic-bg="on"][data-light-surface="on"] [class*="settings" i] {
+  background-color: rgba(252, 249, 243, 0.96) !important;
+  border-color: rgba(26, 33, 29, 0.16) !important;
+  color: #1a211d !important;
 }
 
 /* 真实昼夜天空 Circadian */
@@ -1297,7 +1353,7 @@ html[data-cosmic-bg="on"] [aria-modal="true"],
 html[data-cosmic-bg="on"] [role="menu"],
 html[data-cosmic-bg="on"] [role="listbox"],
 html[data-cosmic-bg="on"] [data-radix-popper-content-wrapper] > *,
-html[data-cosmic-bg="on"] [data-testid*="settings" i],
+html[data-cosmic-bg="on"] [data-testid*="settings" i]:not([data-testid="settings-button"]),
 html[data-cosmic-bg="on"] [class*="settings" i] {
   background-color: rgba(14, 18, 30, 0.96) !important;
   border-color: rgba(255, 255, 255, 0.16) !important;
@@ -2001,10 +2057,13 @@ html[data-spotlight="on"][data-light-surface="on"] [data-main-content-body] pre:
   );
 }
 
-/* 避免岛内列表及粘性分组头重复叠加模糊层 */
+/* 避免岛内列表及粘性分组头重复叠加模糊层（覆盖早期的 .bg-sidebar 深色底） */
+html[data-cosmic-bg="on"] [data-testid="sidebar-split"] [data-testid="conversation-list-sidebar"],
+html[data-cosmic-bg="on"] [data-testid="sidebar-split"] [data-testid="conversation-list-sidebar"] .bg-sidebar,
 [data-testid="sidebar-split"] [data-testid="conversation-list-sidebar"],
 [data-testid="sidebar-split"] [data-testid="conversation-list-sidebar"] .bg-sidebar {
   background: transparent !important;
+  background-color: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
