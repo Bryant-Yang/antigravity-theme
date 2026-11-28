@@ -802,11 +802,41 @@
           col += eCol * spark * (0.65 + 0.35 * sin(t * 6.0 + rnd.x * 20.0));
         }
       }
-      // 专属增色：熔岩地壳周期向上涌动的炽热金白能量波
+      // 专属增色：真实重力抛物线熔岩喷泉火雨 + 火山口爆发云辉
       if (u.fxFlag > 0.5) {
-        let waveY = fract(t * 0.26) * 1.2 - 0.1;
-        let surge = exp(-abs(in.uv.y - waveY) * 10.0) * (0.4 + 0.9 * crack);
-        col += vec3f(1.0, 0.82, 0.38) * surge * 0.58;
+        let cycle = floor(t * 0.28);
+        let age = fract(t * 0.28);
+        let vent = vec2f(0.18 + (hash11(cycle * 9.3) - 0.5) * 0.35, -0.02);
+        // 火山口爆发瞬间的炽热光晕与向上翻涌的火山云辉
+        let burstEnv = sin(clamp(age * 1.45, 0.0, 1.0) * 3.14159);
+        let ventDist = length((p - vent) * vec2f(0.85, 1.1));
+        col += vec3f(1.0, 0.42, 0.08) * exp(-ventDist * 3.4) * burstEnv * 0.65;
+        col += vec3f(1.0, 0.88, 0.45) * exp(-ventDist * 11.0) * burstEnv * 0.85;
+
+        // 7 颗真实重力抛物线喷射的熔岩火球 + 炽热火星长尾
+        for (var k = 0; k < 7; k = k + 1) {
+          let fk = f32(k);
+          let rndA = hash11(cycle * 17.1 + fk * 5.7);
+          let rndB = hash11(cycle * 31.3 + fk * 11.9);
+          let localAge = age - rndB * 0.16;
+          if (localAge > 0.0 && localAge < 0.82) {
+            let vx = (rndA - 0.5) * 1.15;
+            let vy = 1.15 + rndB * 0.72;
+            let grav = 1.65;
+            // 火球当前位置 + 3 段回溯残影构成流畅拖尾
+            for (var s = 0; s < 4; s = s + 1) {
+              let fs = f32(s);
+              let ta = max(0.0, localAge - fs * 0.026);
+              let pos = vent + vec2f(vx * ta, vy * ta - 0.5 * grav * ta * ta);
+              let d = length(p - pos);
+              let fade = (1.0 - localAge / 0.82) * (1.0 - fs * 0.22);
+              let core = exp(-d * (68.0 + fs * 16.0));
+              let glow = exp(-d * (18.0 + fs * 4.0)) * 0.38;
+              let bCol = mix(vec3f(1.0, 0.88, 0.48), vec3f(1.0, 0.24, 0.04), fs * 0.32 + localAge * 0.5);
+              col += bCol * (core + glow) * fade;
+            }
+          }
+        }
       }
 
       return vec4f(aces(col), 1.0);
@@ -1560,7 +1590,7 @@
     abyssal: "🪼 深海发光水母",
     chrome: "⚡ 水银能量波",
     sakura: "🌙 樱岚与流星",
-    ember: "🌋 熔岩热浪脉冲",
+    ember: "🌋 熔岩喷泉火雨",
     circadian: "🌈 日晕与夜流星",
     sunlit: "✨ 午后日光浮尘",
     inkwash: "🕊️ 远山飞鹤",
