@@ -500,11 +500,16 @@
         col += aCol * curtain * rays * (0.48 - fi * 0.08);
       }
 
-      // 专属增色：极夜流星划过极光上空
-      if (u.fxFlag > 0.5 && in.uv.y > 0.24) {
-        let m1 = shootingStar(in.uv, aspect, t * 0.95, 2.7);
-        let m2 = shootingStar(in.uv, aspect, t * 0.95 + 2.5, 8.4);
-        col += vec3f(0.65, 0.98, 0.88) * (m1 + m2 * 0.75) * 1.15;
+      // 专属增色：极地垂直极光光柱（Aurora Pillars）周期亮起垂落
+      if (u.fxFlag > 0.5 && in.uv.y > 0.22) {
+        for (var k = 0; k < 5; k = k + 1) {
+          let fk = f32(k);
+          let px = (hash11(fk * 17.3) - 0.5) * aspect * 0.85 + sin(t * 0.24 + fk * 2.1) * 0.14;
+          let wave = 0.5 + 0.5 * sin(t * (0.85 + fk * 0.22) + fk * 3.7);
+          let pillar = exp(-abs(p.x - px) * 28.0) * smoothstep(0.22, 0.48, in.uv.y) * exp(-max(0.0, in.uv.y - 0.48) * 2.6);
+          let pCol = mix(vec3f(0.18, 1.0, 0.72), vec3f(0.45, 0.52, 1.0), smoothstep(0.32, 0.86, in.uv.y));
+          col += pCol * pillar * pow(wave, 2.0) * 0.52;
+        }
       }
 
       // 远景极地雪山剪影
@@ -681,12 +686,30 @@
       var col = vec3f(0.035, 0.04, 0.058) + vec3f(0.14, 0.16, 0.22) * max(dot(n, lightDir), 0.0);
       col += irid * (fresnel * 0.62 + 0.16);
       col += vec3f(0.95, 0.97, 1.0) * spec * 0.72;
-      // 专属增色：液态水银周期扩散的镜面能量脉冲环
+      // 专属增色：悬浮 3D 液态水银珠（带镜面高光、虹彩边缘与靠近融光质感）
       if (u.fxFlag > 0.5) {
-        let rLen = length(p);
-        let ringPos = fract(t * 0.22) * 1.35;
-        let ring = exp(-pow((rLen - ringPos) * 16.0, 2.0)) * (1.0 - ringPos / 1.45);
-        col += mix(vec3f(0.82, 0.92, 1.0), irid, 0.6) * ring * 0.72;
+        var metaField = 0.0;
+        var grad = vec2f(0.0);
+        for (var b = 0; b < 4; b = b + 1) {
+          let fb = f32(b);
+          let bx = sin(t * (0.32 + fb * 0.09) + fb * 1.9) * aspect * 0.28 + (fb - 1.5) * 0.14;
+          let by = cos(t * (0.27 + fb * 0.08) + fb * 2.4) * 0.24;
+          let rad = 0.065 + hash11(fb * 7.3) * 0.032;
+          let dp = p - vec2f(bx, by);
+          let d2 = dot(dp, dp) + 0.002;
+          let contrib = (rad * rad) / d2;
+          metaField += contrib;
+          grad += dp * (contrib / d2);
+        }
+        let blobMask = smoothstep(0.92, 1.25, metaField);
+        if (blobMask > 0.01) {
+          let bn = normalize(vec3f(-grad * 0.025, 1.0));
+          let bSpec = pow(max(dot(bn, halfVec), 0.0), 42.0);
+          let bRim = pow(1.0 - max(dot(bn, viewDir), 0.0), 2.2);
+          let bIrid = 0.5 + 0.5 * cos(6.2831 * (bRim * 2.2 + t * 0.22 + vec3f(0.0, 0.33, 0.67)));
+          let blobCol = vec3f(0.08, 0.1, 0.14) + bIrid * (bRim * 0.85 + 0.2) + vec3f(1.0, 0.99, 1.0) * bSpec * 1.15;
+          col = mix(col, blobCol, blobMask * 0.86);
+        }
       }
       return vec4f(aces(col), 1.0);
     }
@@ -752,12 +775,14 @@
       // 双层飘落樱花瓣
       col += petalLayer(p, 5.2, t * 0.55) * 0.65;
       col += petalLayer(p + vec2f(3.7, 1.9), 8.6, t * 0.85) * 0.85;
-      // 专属增色：樱吹雪月夜星光流岚与粉金微风丝带
+      // 专属增色：月下周期掠过的樱吹雪旋风花瓣流
       if (u.fxFlag > 0.5) {
-        let windRibbon = exp(-abs(in.uv.y - 0.45 - 0.12 * sin(p.x * 2.2 - t * 0.45)) * 9.0)
-                       * (0.45 + 0.55 * fbm(vec2f(p.x * 3.5 - t * 0.55, in.uv.y * 4.0)));
-        col += vec3f(1.0, 0.72, 0.88) * windRibbon * 0.34;
-        col += vec3f(1.0, 0.86, 0.94) * shootingStar(in.uv, aspect, t * 0.8, 5.3) * 0.95;
+        let gustPhase = fract(t * 0.14);
+        let gustX = (gustPhase * 2.4 - 1.2) * aspect * 0.55;
+        let gustCurveY = 0.46 + 0.14 * sin(p.x * 2.6 - t * 0.65);
+        let gustMask = exp(-abs(p.x - gustX) * 2.6) * exp(-abs(in.uv.y - gustCurveY) * 7.5) * sin(gustPhase * 3.14159);
+        let swirlPetals = petalLayer(vec2f(p.x * 1.3 - t * 0.4, in.uv.y + sin(p.x * 3.0) * 0.08), 11.5, t * 1.35);
+        col += vec3f(1.0, 0.74, 0.88) * gustMask * 0.42 + swirlPetals * gustMask * 1.65;
       }
 
       return vec4f(aces(col), 1.0);
@@ -973,14 +998,23 @@
       ) / wSum;
       col = mix(col, cloudCol, cloudMask * 0.55);
 
-      // 专属增色：白天云际柔和日晕彩光，夜间清澈流星划空
+      // 专属增色：白天晴空滑翔飞鸟群，夜间渐亮斜向银河星尘带
       if (u.fxFlag > 0.5) {
         if (nightW > 0.35) {
-          col += vec3f(0.85, 0.92, 1.0) * shootingStar(in.uv, aspect, t, 6.4) * nightW * 1.1;
+          let mp = mat2x2f(0.84, -0.54, 0.54, 0.84) * p;
+          let mwBand = exp(-abs(mp.y - 0.04 * sin(mp.x * 3.0)) * 5.2);
+          let mwDust = fbm(mp * 4.2 + vec2f(t * 0.015, 0.0));
+          col += mix(vec3f(0.36, 0.52, 0.88), vec3f(0.76, 0.62, 0.92), mwDust) * mwBand * pow(mwDust, 1.8) * nightW * 0.65;
         } else {
-          let haloD = length(p - sunPos);
-          let sunHalo = exp(-pow((haloD - 0.22) * 16.0, 2.0));
-          col += vec3f(1.0, 0.92, 0.78) * sunHalo * 0.28;
+          for (var b = 0; b < 5; b = b + 1) {
+            let fb = f32(b);
+            let bx = fract(t * 0.036 + 0.12 + fb * 0.055) * 1.4 - 0.2;
+            let by = 0.64 + sin(fb * 1.7) * 0.05 + sin(t * 0.85 + fb * 1.2) * 0.014;
+            let bp = (in.uv - vec2f(bx, by)) * vec2f(aspect, 1.0);
+            let flap = sin(t * 5.2 + fb * 2.3) * 0.34;
+            let wing = smoothstep(0.004, 0.001, abs(abs(bp.x) * (0.42 + flap) - bp.y)) * smoothstep(0.02, 0.003, abs(bp.x));
+            col = mix(col, vec3f(0.16, 0.22, 0.30), wing * 0.65 * (1.0 - nightW));
+          }
         }
       }
 
@@ -1042,11 +1076,20 @@
         col += vec3f(0.22, 0.86, 1.0) * pulse * wetRefl * 0.95;
       }
 
-      // 专属增色：海面横向扫过的电光蓝眼泪星海脉冲波
+      // 专属增色：午夜潮线处周期绽放的蓝眼泪荧光水母光团与涟漪星点
       if (u.fxFlag > 0.5) {
-        let sweepX = fract(u.time * 0.14) * 1.4 - 0.2;
-        let sweep = exp(-abs(uv.x - sweepX) * 9.0) * (1.0 - smoothstep(0.52, 0.68, uv.y));
-        col += vec3f(0.14, 0.92, 1.0) * sweep * (0.25 + 0.75 * foamNoise) * 0.65;
+        for (var b = 0; b < 5; b = b + 1) {
+          let fb = f32(b);
+          let cyc = floor(u.time * 0.22 + fb * 0.37);
+          let prog = fract(u.time * 0.22 + fb * 0.37);
+          let bx = 0.14 + hash11(cyc * 13.7 + fb * 5.3) * 0.76;
+          let by = shoreBase - 0.04 + hash11(cyc * 29.1 + fb * 9.1) * 0.18;
+          let d = length((uv - vec2f(bx, by)) * vec2f(aspect, 1.0));
+          let env = sin(prog * 3.14159);
+          let bloom = exp(-d * 14.0) * 0.45 + exp(-pow((d - prog * 0.16) * 42.0, 2.0)) * 0.75;
+          let bCol = mix(vec3f(0.06, 0.82, 1.0), vec3f(0.48, 0.72, 1.0), hash11(fb * 3.1));
+          col += bCol * bloom * env * (0.6 + 0.5 * foamNoise);
+        }
       }
 
       // 光标拂过海面激起柔和荧光涟漪
@@ -1172,17 +1215,21 @@
       let warmTouch = vec3f(0.98, 0.72, 0.34) * pow(bandR, 2.2) * smoothstep(-0.3, 0.6, q.x) * 0.42;
 
       col += spec * 0.52 + ribbonCol * ridge * (bandG + 0.22) * 0.48 + warmTouch;
-      // 专属增色：棱镜折射光带交汇处的彩虹十字星芒闪光
+      // 专属增色：缓缓扫过黑曜石玻璃面的斜向彩虹色散折射光束 + 柔焦棱镜光斑
       if (u.fxFlag > 0.5) {
-        for (var s = 0; s < 5; s = s + 1) {
+        let sweepPos = sin(t * 0.55) * 0.75;
+        let bR = exp(-pow((q.x - sweepPos - 0.045) * 7.5, 2.0));
+        let bG = exp(-pow((q.x - sweepPos) * 8.0, 2.0));
+        let bB = exp(-pow((q.x - sweepPos + 0.045) * 7.5, 2.0));
+        col += vec3f(bR * 0.65, bG * 0.48, bB * 0.78) * 0.34;
+        for (var s = 0; s < 4; s = s + 1) {
           let fs = f32(s);
-          let sx = (hash11(fs * 17.1) - 0.5) * aspect * 0.8 + sin(t * 0.5 + fs) * 0.08;
-          let sy = (hash11(fs * 31.3) - 0.5) * 0.55 + cos(t * 0.4 + fs) * 0.06;
-          let dp = p - vec2f(sx, sy);
-          let star = (exp(-abs(dp.y) * 90.0) * exp(-abs(dp.x) * 8.0) + exp(-abs(dp.x) * 90.0) * exp(-abs(dp.y) * 8.0));
-          let tw = pow(0.5 + 0.5 * sin(u.time * (1.8 + fs * 0.4) + fs * 4.2), 3.0);
-          let sCol = mix(vec3f(0.85, 0.55, 1.0), vec3f(0.35, 0.92, 1.0), hash11(fs * 5.7));
-          col += sCol * star * tw * 0.65;
+          let ox = sin(t * (0.34 + fs * 0.08) + fs * 2.1) * aspect * 0.32;
+          let oy = cos(t * (0.28 + fs * 0.07) + fs * 1.6) * 0.26;
+          let od = length(p - vec2f(ox, oy));
+          let orb = smoothstep(0.085, 0.015, od) * 0.22 + exp(-abs(od - 0.072) * 58.0) * 0.32;
+          let oCol = mix(vec3f(0.72, 0.38, 1.0), vec3f(0.18, 0.88, 1.0), hash11(fs * 9.7));
+          col += oCol * orb;
         }
       }
       col *= 0.88 + 0.2 * u.aiBusy;
@@ -1581,17 +1628,17 @@
     snowfall: "✨ 雪夜极光纱",
     cosmic: "🌠 划空流星",
     blackhole: "💫 相对论喷流",
-    aurora: "🌠 极夜流星雨",
-    biolum: "🌊 星海荧光波",
+    aurora: "✨ 极地垂直光柱",
+    biolum: "🌊 蓝眼泪绽放",
     bamboo: "🌙 竹林月华束",
-    prism: "✨ 棱镜彩虹星芒",
+    prism: "💎 折射彩虹光束",
     dune: "🌠 大漠流星",
     synthwave: "⚡ 网格激光波",
     abyssal: "🪼 深海发光水母",
-    chrome: "⚡ 水银能量波",
-    sakura: "🌙 樱岚与流星",
+    chrome: "🫧 悬浮液态水银珠",
+    sakura: "🌸 阵风旋卷樱岚",
     ember: "🌋 熔岩喷泉火雨",
-    circadian: "🌈 日晕与夜流星",
+    circadian: "🕊️ 飞鸟与星河",
     sunlit: "✨ 午后日光浮尘",
     inkwash: "🕊️ 远山飞鹤",
     matcha: "✨ 金继水滴涟漪",
