@@ -9,6 +9,7 @@
 (() => {
   const BG_CANVAS_ID = "cosmic-webgpu-bg";
   const WP_MEDIA_ID = "agy-wallpaper-media";
+  const HALO_ID = "agy-cursor-halo";
   const FX_CANVAS_ID = "agy-fx-overlay";
   const POMO_BAR_ID = "agy-pomo-bar";
   const UI_ROOT_ID = "agy-theme-studio-root";
@@ -27,6 +28,7 @@
 
   const DEFAULT_STATE = {
     scene: "cyberrain",
+    activeTab: "scenes", // scenes | visual | fx | focus
     alpha: 0.24,
     mainBlur: 0,
     blur: 5,
@@ -38,7 +40,9 @@
     typingSparks: true,
     clickRipple: true,
     cursorTrail: false,
-    constellation: false,
+    constellation: true,
+    cursorHalo: true,
+    ambientParticles: true,
     doneChime: true,
     ambientAudio: false,
     ambientVol: 0.28,
@@ -843,6 +847,415 @@
     }
   `;
 
+  // (12) 荧光海滩：午夜黑沙滩 + 缓慢涌上的蓝眼泪生物荧光潮汐 + 湿沙星光倒影
+  const SHADER_BIOLUM = WGSL_COMMON + /* wgsl */ `
+    @fragment
+    fn fs(v: VsOut) -> @location(0) vec4f {
+      let uv = v.uv;
+      let aspect = u.resolution.x / max(u.resolution.y, 1.0);
+      let t = u.time * 0.34;
+      let m = (u.mouse - 0.5) * 0.14;
+
+      var col = mix(vec3f(0.012, 0.022, 0.055), vec3f(0.025, 0.048, 0.105), pow(clamp(uv.y, 0.0, 1.0), 0.7));
+
+      // 夜空微星
+      if (uv.y > 0.44) {
+        let sg = floor(uv * vec2f(aspect * 78.0, 78.0));
+        let sh = hash21(sg);
+        if (sh > 0.992) {
+          let tw = 0.5 + 0.5 * sin(u.time * 2.2 + sh * 90.0);
+          col += vec3f(0.68, 0.85, 1.0) * tw * smoothstep(0.44, 0.68, uv.y) * 0.72;
+        }
+      }
+
+      // 海平面与湿沙滩分界线
+      let shoreBase = 0.36 + 0.028 * sin(uv.x * 4.5 + t * 0.7) + 0.015 * sin(uv.x * 11.0 - t * 1.1);
+      let waveCycle = 0.5 + 0.5 * sin(t * 1.35 + uv.x * 2.2);
+      let waveEdge = shoreBase + waveCycle * 0.085 + (fbm(vec2f(uv.x * 6.0 + t * 0.2, t * 0.35)) - 0.5) * 0.04;
+
+      // 深海波纹
+      let seaMask = smoothstep(shoreBase - 0.02, shoreBase + 0.05, uv.y) * (1.0 - smoothstep(0.58, 0.72, uv.y));
+      let ripple = fbm(vec2f(uv.x * 7.5 + m.x * 2.0, uv.y * 16.0 - t * 0.8));
+      col += vec3f(0.03, 0.14, 0.26) * seaMask * ripple * 0.65;
+
+      // 蓝眼泪荧光浪线（主浪 + 二次退潮微光）
+      let dWave1 = abs(uv.y - waveEdge);
+      let foamNoise = fbm(vec2f(uv.x * 18.0 - t * 0.5, uv.y * 24.0 + t * 0.4));
+      let glow1 = exp(-dWave1 * 72.0) * (0.55 + 0.85 * foamNoise);
+      let waveEdge2 = shoreBase + (0.5 + 0.5 * sin(t * 1.35 - 1.9 + uv.x * 2.8)) * 0.055;
+      let dWave2 = abs(uv.y - waveEdge2);
+      let glow2 = exp(-dWave2 * 88.0) * (0.45 + 0.75 * foamNoise) * 0.68;
+
+      let bioCol = mix(vec3f(0.04, 0.72, 1.0), vec3f(0.38, 0.92, 1.0), foamNoise);
+      col += bioCol * (glow1 * 1.15 + glow2 * 0.85) * (0.85 + 0.22 * u.aiBusy);
+
+      // 湿沙上的蓝光漫反射与荧光微粒
+      let sandMask = 1.0 - smoothstep(waveEdge - 0.01, waveEdge + 0.02, uv.y);
+      let wetRefl = exp(-max(0.0, waveEdge - uv.y) * 9.0) * sandMask;
+      col += vec3f(0.02, 0.28, 0.48) * wetRefl * (0.55 + 0.45 * ripple);
+
+      let sparkGrid = floor(vec2f(uv.x * aspect * 64.0, uv.y * 64.0));
+      let spH = hash21(sparkGrid);
+      if (spH > 0.986 && sandMask > 0.2) {
+        let pulse = pow(0.5 + 0.5 * sin(u.time * 1.8 + spH * 50.0), 3.0);
+        col += vec3f(0.22, 0.86, 1.0) * pulse * wetRefl * 0.95;
+      }
+
+      // 光标拂过海面激起柔和荧光涟漪
+      let dm = length((uv - u.mouse) * vec2f(aspect, 1.0));
+      col += vec3f(0.14, 0.76, 1.0) * exp(-dm * 7.0) * 0.22;
+
+      return vec4f(aces(col), 1.0);
+    }
+  `;
+
+  // (13) 竹林雾雨：青黛山岚 + 摇曳分层竹影 + 萤火微光与细雨丝
+  const SHADER_BAMBOO = WGSL_COMMON + /* wgsl */ `
+    @fragment
+    fn fs(v: VsOut) -> @location(0) vec4f {
+      let uv = v.uv;
+      let aspect = u.resolution.x / max(u.resolution.y, 1.0);
+      let t = u.time * 0.28;
+      let m = (u.mouse - 0.5) * 0.06;
+
+      // 幽静青黛渐变底色
+      var col = mix(vec3f(0.024, 0.062, 0.056), vec3f(0.058, 0.145, 0.128), pow(clamp(uv.y, 0.0, 1.0), 0.85));
+
+      // 远处林间柔和天光
+      let sunDist = length((uv - vec2f(0.68 + m.x * 0.4, 0.78 + m.y * 0.3)) * vec2f(aspect, 1.0));
+      col += vec3f(0.16, 0.36, 0.29) * exp(-sunDist * 2.2) * 0.55;
+
+      // 三层摇曳竹影
+      for (var layer = 0; layer < 3; layer = layer + 1) {
+        let lf = f32(layer);
+        let density = 7.5 + lf * 4.5;
+        let sway = sin(t * (0.9 + lf * 0.25) + uv.y * 2.2 + lf * 1.7) * (0.012 + lf * 0.006) * uv.y;
+        let xScaled = (uv.x + sway + m.x * (0.3 + lf * 0.25)) * aspect * density;
+        let cell = floor(xScaled);
+        let fx = fract(xScaled) - 0.5;
+        let rnd = hash11(cell * 17.3 + lf * 31.7);
+        if (rnd > 0.36) {
+          let offset = (rnd - 0.65) * 0.45;
+          let width = (0.065 - lf * 0.014) * (0.75 + 0.45 * hash11(cell * 5.1 + lf));
+          let stalk = smoothstep(width, width * 0.45, abs(fx - offset));
+          // 竹节高亮细线
+          let nodeY = fract(uv.y * (4.2 + lf * 1.5) + rnd * 3.0);
+          let nodeBand = exp(-abs(nodeY - 0.5) * 48.0) * stalk;
+          let shade = mix(vec3f(0.042, 0.11, 0.092), vec3f(0.014, 0.036, 0.032), lf / 2.0);
+          col = mix(col, shade + vec3f(0.05, 0.12, 0.09) * nodeBand, stalk * (0.34 + lf * 0.24));
+        }
+      }
+
+      // 流动山岚雾气
+      let mist1 = fbm(vec2f(uv.x * 3.2 - t * 0.22, uv.y * 2.4 + 1.2));
+      let mist2 = fbm(vec2f(uv.x * 5.5 + t * 0.14, uv.y * 4.0));
+      let mistMask = smoothstep(0.1, 0.72, mist1 * 0.65 + mist2 * 0.35) * (1.0 - smoothstep(0.55, 0.98, uv.y));
+      col = mix(col, vec3f(0.14, 0.28, 0.24), mistMask * 0.38);
+
+      // 林间飘浮暖绿萤火
+      for (var i = 0; i < 12; i = i + 1) {
+        let fi = f32(i);
+        let fx = fract(hash11(fi * 13.7) + sin(t * 0.5 + fi * 2.1) * 0.06);
+        let fy = fract(hash11(fi * 29.3) + t * (0.04 + hash11(fi * 7.1) * 0.04));
+        let d = length((uv - vec2f(fx, fy)) * vec2f(aspect, 1.0));
+        let blink = 0.45 + 0.55 * sin(u.time * (1.4 + hash11(fi * 3.9)) + fi * 5.0);
+        col += vec3f(0.45, 0.95, 0.68) * exp(-d * 42.0) * blink * 0.52;
+      }
+
+      // 细斜雨丝
+      let rUV = vec2f((uv.x + uv.y * 0.12) * aspect * 46.0, uv.y * 12.0 + u.time * 2.4);
+      let rCell = floor(rUV);
+      let rF = fract(rUV);
+      let rH = hash21(rCell);
+      if (rH > 0.88) {
+        let streak = smoothstep(0.16, 0.0, abs(rF.x - 0.5)) * smoothstep(0.0, 0.3, rF.y) * smoothstep(1.0, 0.5, rF.y);
+        col += vec3f(0.42, 0.72, 0.65) * streak * 0.16;
+      }
+
+      return vec4f(aces(col), 1.0);
+    }
+  `;
+
+  // (14) 棱镜极光：黑曜石玻璃基底 + 柔和光谱色散折射焦散光带
+  const SHADER_PRISM = WGSL_COMMON + /* wgsl */ `
+    @fragment
+    fn fs(v: VsOut) -> @location(0) vec4f {
+      let uv = v.uv;
+      let aspect = u.resolution.x / max(u.resolution.y, 1.0);
+      let p = (uv - 0.5) * vec2f(aspect, 1.0);
+      let m = (u.mouse - 0.5) * 0.35;
+      let t = u.time * 0.22;
+
+      var col = vec3f(0.018, 0.02, 0.038);
+
+      // 旋转斜向玻璃折射坐标系
+      let ang = 0.46 + m.x * 0.25;
+      let ca = cos(ang);
+      let sa = sin(ang);
+      let q = vec2f(p.x * ca - p.y * sa, p.x * sa + p.y * ca);
+
+      // 三通道微错位色散焦散（模拟玻璃棱镜分光）
+      let nR = fbm(vec2f(q.x * 2.2 + t * 0.45 + 0.06, q.y * 1.4 - t * 0.25));
+      let nG = fbm(vec2f(q.x * 2.2 + t * 0.45,        q.y * 1.4 - t * 0.25 + 0.02));
+      let nB = fbm(vec2f(q.x * 2.2 + t * 0.45 - 0.06, q.y * 1.4 - t * 0.25 - 0.02));
+
+      let bandR = exp(-abs(q.y + (nR - 0.5) * 0.62 - m.y * 0.2) * 5.8);
+      let bandG = exp(-abs(q.y + (nG - 0.5) * 0.62 - m.y * 0.2) * 6.2);
+      let bandB = exp(-abs(q.y + (nB - 0.5) * 0.62 - m.y * 0.2) * 5.6);
+
+      let spec = vec3f(
+        bandR * 0.92 + bandB * 0.32,
+        bandG * 0.58 + bandB * 0.48,
+        bandB * 1.05 + bandR * 0.28
+      );
+
+      // 柔和棱镜边缘高光丝带
+      let ridge = pow(clamp(1.0 - abs(sin(q.x * 4.5 + nG * 3.8 - t * 0.7)), 0.0, 1.0), 6.0);
+      let ribbonCol = mix(vec3f(0.68, 0.34, 0.96), vec3f(0.14, 0.82, 0.96), 0.5 + 0.5 * sin(q.x * 2.0 + t));
+      let warmTouch = vec3f(0.98, 0.72, 0.34) * pow(bandR, 2.2) * smoothstep(-0.3, 0.6, q.x) * 0.42;
+
+      col += spec * 0.52 + ribbonCol * ridge * (bandG + 0.22) * 0.48 + warmTouch;
+      col *= 0.88 + 0.2 * u.aiBusy;
+
+      // 细腻暗角收边
+      let vig = 1.0 - smoothstep(0.45, 1.25, length(p));
+      col *= 0.62 + 0.38 * vig;
+
+      return vec4f(aces(col), 1.0);
+    }
+  `;
+
+  // (15) 沙丘星夜：月色大漠层叠沙脊 + 暖琥珀沙纹 + 静谧银河流星
+  const SHADER_DUNE = WGSL_COMMON + /* wgsl */ `
+    @fragment
+    fn fs(v: VsOut) -> @location(0) vec4f {
+      let uv = v.uv;
+      let aspect = u.resolution.x / max(u.resolution.y, 1.0);
+      let t = u.time * 0.16;
+      let m = (u.mouse - 0.5) * 0.08;
+
+      // 暮蓝到暖琥珀地平线夜空
+      var col = mix(vec3f(0.14, 0.09, 0.12), vec3f(0.028, 0.035, 0.085), smoothstep(0.28, 0.92, uv.y));
+      let horizonGlow = exp(-abs(uv.y - 0.38) * 7.5);
+      col += vec3f(0.42, 0.22, 0.12) * horizonGlow * 0.42;
+
+      // 柔和弯月辉光
+      let moonPos = vec2f(0.76 + m.x * 0.2, 0.76 + m.y * 0.15);
+      let dMoon = length((uv - moonPos) * vec2f(aspect, 1.0));
+      col += vec3f(0.96, 0.82, 0.58) * exp(-dMoon * 5.2) * 0.36;
+      let moonDisc = smoothstep(0.036, 0.031, dMoon) * (1.0 - smoothstep(0.032, 0.026, length((uv - moonPos - vec2f(0.011, 0.006)) * vec2f(aspect, 1.0))));
+      col += vec3f(1.0, 0.92, 0.74) * moonDisc * 0.95;
+
+      // 夜空繁星
+      if (uv.y > 0.32) {
+        let sg = floor(uv * vec2f(aspect * 88.0, 88.0));
+        let sh = hash21(sg);
+        if (sh > 0.991) {
+          let tw = 0.5 + 0.5 * sin(u.time * 2.0 + sh * 100.0);
+          col += vec3f(0.95, 0.88, 0.78) * tw * smoothstep(0.32, 0.56, uv.y) * 0.78;
+        }
+      }
+
+      // 三层绵延沙丘剪影与月光脊线
+      let h1 = 0.34 + 0.055 * sin(uv.x * 2.6 + 0.4 + m.x * 0.6) + 0.022 * sin(uv.x * 6.2 - 1.0);
+      let h2 = 0.24 + 0.048 * sin(uv.x * 3.8 + 2.3 + m.x * 1.1) + 0.016 * cos(uv.x * 8.4);
+      let h3 = 0.14 + 0.038 * sin(uv.x * 5.1 + 4.2 + m.x * 1.6) + 0.012 * sin(uv.x * 11.0 + t * 0.5);
+
+      let windRipple = 0.5 + 0.5 * sin(uv.x * 42.0 + uv.y * 90.0 + fbm(uv * 8.0 + vec2f(t * 0.3, 0.0)) * 4.5);
+
+      if (uv.y < h1) {
+        let rim1 = exp(-abs(uv.y - h1) * 55.0);
+        col = mix(vec3f(0.11, 0.068, 0.064), vec3f(0.24, 0.13, 0.09), windRipple * 0.32) + vec3f(0.72, 0.44, 0.22) * rim1 * 0.52;
+      }
+      if (uv.y < h2) {
+        let rim2 = exp(-abs(uv.y - h2) * 62.0);
+        col = mix(vec3f(0.075, 0.046, 0.048), vec3f(0.18, 0.098, 0.072), windRipple * 0.38) + vec3f(0.84, 0.52, 0.24) * rim2 * 0.62;
+      }
+      if (uv.y < h3) {
+        let rim3 = exp(-abs(uv.y - h3) * 70.0);
+        col = mix(vec3f(0.045, 0.028, 0.034), vec3f(0.12, 0.065, 0.052), windRipple * 0.42) + vec3f(0.92, 0.60, 0.28) * rim3 * 0.68;
+      }
+
+      return vec4f(aces(col), 1.0);
+    }
+  `;
+
+  // (16) 禅意抹茶（浅色系动态主题）：素雅青瓷茶面 + 同心枯山水涟漪 + 飘浮金箔微尘
+  const SHADER_MATCHA = WGSL_COMMON + /* wgsl */ `
+    @fragment
+    fn fs(v: VsOut) -> @location(0) vec4f {
+      let uv = v.uv;
+      let aspect = u.resolution.x / max(u.resolution.y, 1.0);
+      let p = (uv - 0.5) * vec2f(aspect, 1.0);
+      let t = u.time * 0.32;
+
+      // 温润素雅的抹茶青瓷底色
+      let tex = fbm(uv * 6.5 + vec2f(t * 0.04, -t * 0.03));
+      var col = mix(vec3f(0.86, 0.90, 0.83), vec3f(0.77, 0.84, 0.74), uv.y * 0.65 + tex * 0.35);
+
+      // 柔和枯山水同心水波（主中心 + 次中心 + 光标微涟漪）
+      let d1 = length(p - vec2f(-0.22, 0.08));
+      let d2 = length(p - vec2f(0.32, -0.14));
+      let dm = length((uv - u.mouse) * vec2f(aspect, 1.0));
+
+      let r1 = sin(d1 * 28.0 - t * 2.1) * exp(-d1 * 2.4);
+      let r2 = sin(d2 * 24.0 - t * 1.7 + 1.4) * exp(-d2 * 2.8);
+      let rm = sin(dm * 34.0 - t * 3.0) * exp(-dm * 4.5);
+
+      let ripple = r1 * 0.55 + r2 * 0.4 + rm * 0.45;
+      col += vec3f(0.05, 0.065, 0.04) * ripple * 0.45;
+      col -= vec3f(0.06, 0.04, 0.05) * max(0.0, -ripple) * 0.25;
+
+      // 极淡的飘浮暖金箔微粒
+      for (var i = 0; i < 10; i = i + 1) {
+        let fi = f32(i);
+        let gx = fract(hash11(fi * 19.1) + t * 0.015 + sin(t * 0.4 + fi) * 0.02);
+        let gy = fract(hash11(fi * 37.7) + cos(t * 0.35 + fi * 2.0) * 0.02);
+        let dg = length((uv - vec2f(gx, gy)) * vec2f(aspect, 1.0));
+        col = mix(col, vec3f(0.78, 0.64, 0.32), smoothstep(0.012, 0.002, dg) * 0.42);
+      }
+
+      // 柔和四周晕边，保持中心阅读区通透干净
+      let vig = smoothstep(0.35, 1.25, length(p));
+      col = mix(col, vec3f(0.72, 0.79, 0.69), vig * 0.28);
+
+      return vec4f(clamp(col, vec3f(0.0), vec3f(1.0)), 1.0);
+    }
+  `;
+
+  // (17) 午后窗影（浅色系动态主题）：暖白肌理墙面 + 斜射百叶窗金光 + 微风摇曳树叶斑驳投影
+  const SHADER_SUNLIT = WGSL_COMMON + /* wgsl */ `
+    @fragment
+    fn fs(v: VsOut) -> @location(0) vec4f {
+      let uv = v.uv;
+      let aspect = u.resolution.x / max(u.resolution.y, 1.0);
+      let t = u.time * 0.25;
+      let m = (u.mouse - 0.5) * 0.05;
+
+      // 温润暖白石膏墙肌理底色
+      let plaster = fbm(uv * 11.0) * 0.045;
+      var col = mix(vec3f(0.92, 0.89, 0.84), vec3f(0.84, 0.80, 0.75), (1.0 - uv.y) * 0.65 + uv.x * 0.25) + plaster;
+
+      // 斜射百叶窗光栅（右上向左下倾斜）
+      let slant = uv.y * 1.15 - uv.x * 0.42 + m.x * 0.35;
+      let slat = smoothstep(-0.22, 0.38, sin(slant * 26.0));
+      let winMask = smoothstep(0.05, 0.26, uv.x) * smoothstep(0.98, 0.72, uv.x) * smoothstep(0.04, 0.28, uv.y);
+
+      // 窗外微风摇曳的树影斑驳
+      let breeze = vec2f(sin(t * 0.85 + uv.y * 2.4) * 0.045, cos(t * 0.65 + uv.x * 2.0) * 0.025);
+      let leafA = fbm((uv + breeze + m * 0.4) * vec2f(aspect * 3.8, 3.8) + vec2f(1.3, 0.7));
+      let leafB = fbm((uv - breeze * 0.7) * vec2f(aspect * 6.2, 6.2) + vec2f(4.8, 2.1));
+      let leafShadow = smoothstep(0.46, 0.68, leafA * 0.65 + leafB * 0.35);
+
+      let sunLight = slat * winMask * (1.0 - leafShadow * 0.78);
+      // 暖金午后日光叠加
+      col = mix(col * 0.91, vec3f(0.99, 0.95, 0.86) + plaster * 0.5, sunLight * 0.85);
+      // 柔和空气丁达尔柔光
+      let glow = exp(-length((uv - vec2f(0.75, 0.82)) * vec2f(aspect, 1.0)) * 1.9);
+      col += vec3f(0.08, 0.05, 0.01) * glow;
+
+      return vec4f(clamp(col, vec3f(0.0), vec3f(1.0)), 1.0);
+    }
+  `;
+
+  // (18) 长安雨巷：深夜蓝靛雨巷 + 暖红宫灯散景 + 湿润青石板倒影与细雨
+  const SHADER_CHANGAN = WGSL_COMMON + /* wgsl */ `
+    @fragment
+    fn fs(v: VsOut) -> @location(0) vec4f {
+      let uv = v.uv;
+      let aspect = u.resolution.x / max(u.resolution.y, 1.0);
+      let t = u.time * 0.3;
+      let m = (u.mouse - 0.5) * 0.06;
+
+      // 深夜雨巷青灰蓝底色
+      var col = mix(vec3f(0.022, 0.026, 0.048), vec3f(0.045, 0.052, 0.085), smoothstep(0.25, 0.95, uv.y));
+
+      // 沿街透视屋檐暗影
+      let roofL = smoothstep(0.26, 0.14, uv.x + uv.y * 0.12);
+      let roofR = smoothstep(0.74, 0.86, uv.x - uv.y * 0.12);
+      col *= 1.0 - (roofL + roofR) * 0.52;
+
+      // 5 盏暖红/琥珀和纸灯笼（上空光源 + 下半湿青石板拉长倒影）
+      for (var i = 0; i < 5; i = i + 1) {
+        let fi = f32(i);
+        let lx = 0.16 + fi * 0.17 + sin(t * 0.7 + fi * 1.9) * 0.012 + m.x * (0.4 + fi * 0.08);
+        let ly = 0.56 + hash11(fi * 11.7) * 0.22 + m.y * 0.2;
+        let sway = 0.88 + 0.12 * sin(u.time * (1.8 + fi * 0.4) + fi * 3.1);
+        let lanternCol = mix(vec3f(1.0, 0.28, 0.14), vec3f(1.0, 0.64, 0.22), hash11(fi * 5.3));
+
+        // 纸灯笼光晕
+        let d = length((uv - vec2f(lx, ly)) * vec2f(aspect, 1.0));
+        col += lanternCol * (exp(-d * 18.0) * 0.72 + exp(-d * 5.2) * 0.24) * sway;
+
+        // 湿润石板路面倒影（uv.y < 0.42）
+        if (uv.y < 0.44) {
+          let ripple = (fbm(vec2f(uv.x * 16.0, uv.y * 28.0 - t * 0.8)) - 0.5) * 0.035;
+          let rx = abs(uv.x - lx + ripple) * aspect;
+          let ry = max(0.0, 0.44 - uv.y);
+          let refl = exp(-rx * 16.0) * exp(-ry * 3.8) * smoothstep(0.44, 0.34, uv.y);
+          col += lanternCol * refl * 0.52 * sway;
+        }
+      }
+
+      // 细斜雨丝
+      let rUV = vec2f((uv.x + uv.y * 0.15) * aspect * 52.0, uv.y * 10.0 + u.time * 3.2);
+      let rCell = floor(rUV);
+      let rF = fract(rUV);
+      if (hash21(rCell) > 0.86) {
+        let streak = smoothstep(0.14, 0.0, abs(rF.x - 0.5)) * smoothstep(0.0, 0.3, rF.y) * smoothstep(1.0, 0.4, rF.y);
+        col += vec3f(0.68, 0.74, 0.88) * streak * 0.18;
+      }
+
+      return vec4f(aces(col), 1.0);
+    }
+  `;
+
+  // (19) 极地雪夜：深靛蓝雪夜天幕 + 远方暖木屋微光 + 三层景深轻柔飘雪
+  const SHADER_SNOWFALL = WGSL_COMMON + /* wgsl */ `
+    fn snowLayer(uv: vec2f, scale: f32, speed: f32, drift: f32, t: f32) -> f32 {
+      var st = vec2f(uv.x + sin(t * 0.45 + uv.y * 3.0 + drift) * 0.03, uv.y + t * speed) * scale;
+      let id = floor(st);
+      let gv = fract(st) - 0.5;
+      let rnd = hash22(id + vec2f(drift, drift * 1.7));
+      if (rnd.x < 0.52) { return 0.0; }
+      let pos = (rnd - 0.5) * 0.72;
+      let d = length(gv - pos);
+      let rad = 0.045 + (rnd.x - 0.52) * 0.11;
+      return smoothstep(rad, rad * 0.15, d) * (0.45 + 0.55 * rnd.y);
+    }
+
+    @fragment
+    fn fs(v: VsOut) -> @location(0) vec4f {
+      let uv = v.uv;
+      let aspect = u.resolution.x / max(u.resolution.y, 1.0);
+      let t = u.time;
+      let m = (u.mouse - 0.5) * 0.06;
+
+      // 极地深靛蓝暮夜渐变
+      var col = mix(vec3f(0.05, 0.08, 0.16), vec3f(0.015, 0.024, 0.062), smoothstep(0.15, 0.92, uv.y));
+
+      // 远景柔和雪丘与暖黄木屋灯火
+      let hill = 0.18 + 0.045 * sin(uv.x * 3.4 + 0.8 + m.x) + 0.018 * cos(uv.x * 7.2);
+      let cabinDist = length((uv - vec2f(0.72 + m.x * 0.5, hill + 0.015)) * vec2f(aspect, 1.0));
+      col += vec3f(1.0, 0.68, 0.30) * exp(-cabinDist * 11.0) * 0.58;
+      col += vec3f(1.0, 0.82, 0.52) * exp(-cabinDist * 38.0) * 0.72;
+
+      if (uv.y < hill) {
+        let rim = exp(-abs(uv.y - hill) * 55.0);
+        col = mix(vec3f(0.06, 0.09, 0.16), vec3f(0.14, 0.19, 0.29), rim) + vec3f(0.85, 0.55, 0.25) * exp(-cabinDist * 8.0) * 0.28;
+      }
+
+      // 三层景深飘雪（远细雪 + 中雪 + 近景柔焦大雪）
+      let p = vec2f(uv.x * aspect, uv.y) + m * 0.35;
+      let s1 = snowLayer(p, 18.0, 0.065, 1.1, t) * 0.38;
+      let s2 = snowLayer(p + vec2f(2.4, 0.8), 11.0, 0.095, 3.7, t) * 0.58;
+      let s3 = snowLayer(p + vec2f(5.1, 1.9), 6.5, 0.13, 7.3, t) * 0.72;
+      col += vec3f(0.86, 0.93, 1.0) * (s1 + s2 + s3);
+
+      return vec4f(aces(col), 1.0);
+    }
+  `;
+
   const SHADER_MAP = {
     cyberrain: SHADER_CYBERRAIN,
     cosmic: SHADER_COSMIC,
@@ -855,6 +1268,14 @@
     ember: SHADER_EMBER,
     inkwash: SHADER_INKWASH,
     circadian: SHADER_CIRCADIAN,
+    biolum: SHADER_BIOLUM,
+    bamboo: SHADER_BAMBOO,
+    prism: SHADER_PRISM,
+    dune: SHADER_DUNE,
+    matcha: SHADER_MATCHA,
+    sunlit: SHADER_SUNLIT,
+    changan: SHADER_CHANGAN,
+    snowfall: SHADER_SNOWFALL,
   };
 
   /* ========================================================================
@@ -923,6 +1344,14 @@
     ember: ["#f97316", "#ef4444", "#fde047"],
     inkwash: ["#c84b31", "#4a665f", "#242c30"],
     circadian: ["#fb923c", "#38bdf8", "#fde68a"],
+    biolum: ["#38bdf8", "#22d3ee", "#818cf8"],
+    bamboo: ["#34d399", "#6ee7b7", "#a7f3d0"],
+    prism: ["#c084fc", "#38bdf8", "#fbbf24"],
+    dune: ["#f59e0b", "#fb923c", "#fde68a"],
+    matcha: ["#4d7c5b", "#9b7b35", "#2d4234"],
+    sunlit: ["#b87a3d", "#d9a05b", "#5c4a38"],
+    changan: ["#f97316", "#ef4444", "#fbbf24"],
+    snowfall: ["#93c5fd", "#e0f2fe", "#fbbf24"],
     none: ["#d97757", "#e8a87c", "#f2ece2"],
   };
 
@@ -930,13 +1359,31 @@
   let cursorClientX = -999;
   let cursorClientY = -999;
   const cursorTrail = [];
-  const dustNodes = Array.from({ length: 24 }, () => ({
-    x: Math.random() * Math.max(window.innerWidth, 1200),
-    y: Math.random() * Math.max(window.innerHeight, 800),
-    vx: (Math.random() - 0.5) * 0.35,
-    vy: (Math.random() - 0.5) * 0.35,
-    r: 1.1 + Math.random() * 1.4,
+  const dustNodes = Array.from({ length: 32 }, () => ({
+    x: Math.random() * Math.max(window.innerWidth, 1400),
+    y: Math.random() * Math.max(window.innerHeight, 900),
+    vx: (Math.random() - 0.5) * 0.36,
+    vy: (Math.random() - 0.5) * 0.36,
+    r: 1.3 + Math.random() * 1.3,
   }));
+
+  // 场景专属飘浮微粒（花瓣 / 萤火 / 金箔 / 火星 / 雪花，极轻量 22 颗）
+  const driftMotes = Array.from({ length: 22 }, () => ({
+    x: Math.random() * Math.max(window.innerWidth, 1400),
+    y: Math.random() * Math.max(window.innerHeight, 900),
+    size: 1.8 + Math.random() * 2.6,
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.35 + Math.random() * 0.65,
+    rot: Math.random() * Math.PI * 2,
+  }));
+
+  // 光标环境柔光灯（纯 CSS radial-gradient 跟随 --cursor-x/y，零每帧 JS 开销）
+  let cursorHaloEl = document.getElementById(HALO_ID);
+  if (!cursorHaloEl) {
+    cursorHaloEl = document.createElement("div");
+    cursorHaloEl.id = HALO_ID;
+    document.body.appendChild(cursorHaloEl);
+  }
 
   // Web Audio 零素材氛围白噪音 + 完成水晶音引擎
   let audioCtx = null;
@@ -971,10 +1418,21 @@
   }
 
   function getAmbientProfile(scene) {
-    if (scene === "cyberrain" || scene === "sakura") return "rain";
-    if (scene === "abyssal") return "ocean";
+    if (scene === "cyberrain" || scene === "sakura" || scene === "bamboo" || scene === "changan") return "rain";
+    if (scene === "abyssal" || scene === "biolum") return "ocean";
     if (scene === "ember") return "fire";
-    if (scene === "inkwash" || scene === "circadian" || scene === "wallpaper" || scene === "none") return "wind";
+    if (
+      scene === "inkwash" ||
+      scene === "matcha" ||
+      scene === "sunlit" ||
+      scene === "snowfall" ||
+      scene === "dune" ||
+      scene === "circadian" ||
+      scene === "wallpaper" ||
+      scene === "none"
+    ) {
+      return "wind";
+    }
     return "space";
   }
 
@@ -1496,13 +1954,38 @@
   }
 
   function mountWallpaperBlob(record) {
-    clearWallpaperElement();
-    if (!record || !record.blob) return;
-    state.activeWallpaperId = record.id || state.activeWallpaperId;
-    if (wallpaperObjectUrl) {
-      URL.revokeObjectURL(wallpaperObjectUrl);
-      wallpaperObjectUrl = null;
+    if (!record || !record.blob) {
+      clearWallpaperElement();
+      return;
     }
+    const prevEl = document.getElementById(WP_MEDIA_ID);
+    const prevUrl = wallpaperObjectUrl;
+    const doFade = Boolean(prevEl && state.scene === "wallpaper");
+    if (!doFade) {
+      clearWallpaperElement();
+      if (prevUrl) {
+        URL.revokeObjectURL(prevUrl);
+      }
+    } else if (prevEl) {
+      prevEl.removeAttribute("id");
+      prevEl.style.transition = "opacity 460ms cubic-bezier(0.22, 1, 0.36, 1)";
+      prevEl.style.opacity = "0";
+      setTimeout(() => {
+        if (prevEl.tagName === "VIDEO") {
+          try {
+            prevEl.pause();
+            prevEl.src = "";
+          } catch {}
+        }
+        prevEl.remove();
+        if (prevUrl) {
+          try {
+            URL.revokeObjectURL(prevUrl);
+          } catch {}
+        }
+      }, 480);
+    }
+    state.activeWallpaperId = record.id || state.activeWallpaperId;
     wallpaperObjectUrl = URL.createObjectURL(record.blob);
     const isVideo = String(record.type || "").startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(record.name || "");
     const el = document.createElement(isVideo ? "video" : "img");
@@ -1526,12 +2009,19 @@
       zIndex: "0",
       pointerEvents: "none",
       display: state.scene === "wallpaper" ? "block" : "none",
+      opacity: doFade ? "0" : "1",
+      transition: "opacity 460ms cubic-bezier(0.22, 1, 0.36, 1)",
     });
     document.body.prepend(el);
     wallpaperEl = el;
     if (lastHoleClip) el.style.clipPath = lastHoleClip;
     if (isVideo && state.scene === "wallpaper") {
       el.play().catch(() => {});
+    }
+    if (doFade) {
+      requestAnimationFrame(() => {
+        el.style.opacity = "1";
+      });
     }
     renderWallpaperPlaylistUI();
   }
@@ -1698,6 +2188,20 @@
   };
   document.addEventListener("visibilitychange", onVisibilityChange);
 
+  // 场景丝滑转场（Cross-Fade Morph）：切场景时柔和亮度与微模糊淡变，内置默认生效
+  let sceneMorphTimer = null;
+  function triggerSceneMorph() {
+    const html = document.documentElement;
+    html.classList.remove("agy-scene-morphing");
+    void html.offsetWidth;
+    html.classList.add("agy-scene-morphing");
+    if (sceneMorphTimer) clearTimeout(sceneMorphTimer);
+    sceneMorphTimer = setTimeout(() => {
+      html.classList.remove("agy-scene-morphing");
+      sceneMorphTimer = null;
+    }, 460);
+  }
+
   function applyStateToDOM() {
     const html = document.documentElement;
     if (state.scene === "none") {
@@ -1738,10 +2242,16 @@
     html.setAttribute("data-zen-mode", state.zenMode ? "on" : "off");
     html.setAttribute("data-adaptive-comfort", state.adaptiveComfort ? "on" : "off");
     html.setAttribute("data-spotlight", state.spotlight ? "on" : "off");
+    html.setAttribute("data-cursor-halo", state.cursorHalo ? "on" : "off");
+    html.setAttribute("data-magnetic", "on");
+    const ltWrap = document.getElementById("agy-fx-scene-exclusive");
+    if (ltWrap) {
+      ltWrap.style.display = state.scene === "cyberrain" ? "" : "none";
+    }
 
     const nowHr = new Date().getHours() + new Date().getMinutes() / 60;
     const isCircadianDay = state.scene === "circadian" && nowHr >= 7.5 && nowHr <= 16.8;
-    const isLightScene = state.scene === "inkwash" || isCircadianDay;
+    const isLightScene = state.scene === "inkwash" || state.scene === "matcha" || state.scene === "sunlit" || isCircadianDay;
     if (state.scene !== "wallpaper") {
       html.setAttribute("data-light-surface", isLightScene ? "on" : "off");
     } else if (!state.adaptiveComfort) {
@@ -1785,28 +2295,79 @@
   let lastSpotX = -999;
   let lastSpotY = -999;
 
-  function updateSpotlightTargets() {
-    spotRafPending = false;
-    if (destroyed || !state.spotlight) return;
-    const nodes = document.querySelectorAll(SPOTLIGHT_SELECTOR);
-    const pad = 140;
+  // 关键控件磁吸微动交互（Magnetic Micro-Physics）：内置默认开启，靠近核心按钮产生 1.5~3px 克制弹性跟随
+  const MAGNETIC_SELECTOR = [
+    "#agy-theme-studio-root .agy-studio-fab",
+    '[data-testid="new-conversation-button"]',
+    '[data-testid="settings-button"]',
+    '[data-testid="agent-input-box"] [data-testid="input-send-button"]',
+    '[data-testid="agent-input-box"] [data-testid="input-cancel-button"]',
+    '[data-testid="agent-input-box"] button[aria-label*="Send" i]',
+  ].join(",");
+
+  function updateMagneticTargets() {
+    if (destroyed) return;
+    const nodes = document.querySelectorAll(MAGNETIC_SELECTOR);
     for (let i = 0; i < nodes.length; i += 1) {
       const el = nodes[i];
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
+      const cx = r.left + r.width * 0.5;
+      const cy = r.top + r.height * 0.5;
+      const dx = lastSpotX - cx;
+      const dy = lastSpotY - cy;
       const near =
-        lastSpotX >= r.left - pad &&
-        lastSpotX <= r.right + pad &&
-        lastSpotY >= r.top - pad &&
-        lastSpotY <= r.bottom + pad;
+        lastSpotX >= r.left - 24 &&
+        lastSpotX <= r.right + 24 &&
+        lastSpotY >= r.top - 24 &&
+        lastSpotY <= r.bottom + 24;
       if (near) {
-        el.style.setProperty("--spot-x", `${(lastSpotX - r.left).toFixed(1)}px`);
-        el.style.setProperty("--spot-y", `${(lastSpotY - r.top).toFixed(1)}px`);
-        el.style.setProperty("--spot-o", "1");
-      } else if (el.style.getPropertyValue("--spot-o") === "1") {
-        el.style.setProperty("--spot-o", "0");
+        const mx = Math.max(-3.2, Math.min(3.2, dx * 0.085));
+        const my = Math.max(-2.6, Math.min(2.6, dy * 0.11));
+        el.style.setProperty("--mag-x", `${mx.toFixed(2)}px`);
+        el.style.setProperty("--mag-y", `${my.toFixed(2)}px`);
+        el.dataset.magActive = "1";
+      } else if (el.dataset.magActive === "1") {
+        el.style.setProperty("--mag-x", "0px");
+        el.style.setProperty("--mag-y", "0px");
+        el.dataset.magActive = "0";
       }
     }
+  }
+
+  function resetMagneticTargets() {
+    document.querySelectorAll(MAGNETIC_SELECTOR).forEach((el) => {
+      el.style.removeProperty("--mag-x");
+      el.style.removeProperty("--mag-y");
+      el.dataset.magActive = "0";
+    });
+  }
+
+  function updateSpotlightTargets() {
+    spotRafPending = false;
+    if (destroyed) return;
+    if (state.spotlight) {
+      const nodes = document.querySelectorAll(SPOTLIGHT_SELECTOR);
+      const pad = 140;
+      for (let i = 0; i < nodes.length; i += 1) {
+        const el = nodes[i];
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        const near =
+          lastSpotX >= r.left - pad &&
+          lastSpotX <= r.right + pad &&
+          lastSpotY >= r.top - pad &&
+          lastSpotY <= r.bottom + pad;
+        if (near) {
+          el.style.setProperty("--spot-x", `${(lastSpotX - r.left).toFixed(1)}px`);
+          el.style.setProperty("--spot-y", `${(lastSpotY - r.top).toFixed(1)}px`);
+          el.style.setProperty("--spot-o", "1");
+        } else if (el.style.getPropertyValue("--spot-o") === "1") {
+          el.style.setProperty("--spot-o", "0");
+        }
+      }
+    }
+    updateMagneticTargets();
   }
 
   const onMouseMove = (e) => {
@@ -1815,7 +2376,7 @@
     cursorClientY = e.clientY;
     lastSpotX = e.clientX;
     lastSpotY = e.clientY;
-    if (state.spotlight && !spotRafPending) {
+    if (!spotRafPending) {
       spotRafPending = true;
       requestAnimationFrame(updateSpotlightTargets);
     }
@@ -1842,6 +2403,40 @@
       alpha: 0.55,
       color: palette[Math.floor(Math.random() * palette.length)],
     });
+  };
+
+  // 代码复制微光气泡（Glass Copy Toast）
+  let lastCopyToastAt = 0;
+  function showCopyToast(x, y) {
+    const now = performance.now();
+    if (now - lastCopyToastAt < 280) return;
+    lastCopyToastAt = now;
+    const toast = document.createElement("div");
+    toast.className = "agy-copy-toast";
+    toast.textContent = "✓ 已复制";
+    const px = Math.min(window.innerWidth - 96, Math.max(24, x));
+    const py = Math.max(32, y - 14);
+    toast.style.left = `${px}px`;
+    toast.style.top = `${py}px`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 960);
+  }
+
+  const onCopyButtonClick = (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest("button") : null;
+    if (!btn) return;
+    if (btn.closest(`#${UI_ROOT_ID}`)) return;
+    const label = `${btn.getAttribute("aria-label") || ""} ${btn.getAttribute("title") || ""} ${btn.textContent || ""}`;
+    if (/\bcopy\b|复制/i.test(label)) {
+      const r = btn.getBoundingClientRect();
+      showCopyToast(r.left + r.width * 0.5, r.top);
+    }
+  };
+
+  const onDocumentCopy = () => {
+    const x = cursorClientX > 0 ? cursorClientX : window.innerWidth * 0.5;
+    const y = cursorClientY > 0 ? cursorClientY : window.innerHeight * 0.5;
+    showCopyToast(x, y);
   };
 
   const onKeyDown = (e) => {
@@ -1942,6 +2537,8 @@
 
   window.addEventListener("mousemove", onMouseMove, { passive: true });
   window.addEventListener("pointerdown", onPointerDown, { passive: true });
+  window.addEventListener("click", onCopyButtonClick, true);
+  document.addEventListener("copy", onDocumentCopy, true);
   // 使用捕获阶段监听，避免富文本输入框拦截冒泡导致键盘音效/火花漏触发
   window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("keyup", onKeyUp, true);
@@ -2027,10 +2624,11 @@
     if (destroyed) return;
     syncBrowserHoleCutout();
     syncChatWidthSlider();
+    // 仅检测当前对话输入框内部的取消/停止按钮，避免被左侧栏其他会话的加载图标误触发常亮
     const rawBusy = Boolean(
-      document.querySelector('[data-testid="status-loading-spinner"]') ||
-        document.querySelector('[data-testid="stop-button"]') ||
-        document.querySelector('button[aria-label*="Stop" i]')
+      document.querySelector('[data-testid="agent-input-box"] [data-testid="input-cancel-button"]') ||
+        document.querySelector('[data-testid="agent-input-box"] [data-testid="stop-button"]') ||
+        document.querySelector('[data-testid="agent-input-box"] button[aria-label*="Stop" i]')
     );
     aiBusyTarget = rawBusy ? 1 : 0;
     document.documentElement.setAttribute("data-ai-busy", state.aiPulse && rawBusy ? "true" : "false");
@@ -2041,11 +2639,13 @@
     }
     wasAiBusy = rawBusy;
 
-    // 昼夜天空在白天时段自动切为高可读浅色文本
+    // 昼夜天空在白天时段自动切为高可读浅色文本（同步更新 data-light-surface）
     if (state.scene === "circadian") {
       const now = new Date();
       const hr = now.getHours() + now.getMinutes() / 60;
-      document.documentElement.setAttribute("data-circadian-day", hr >= 7.5 && hr <= 16.8 ? "true" : "false");
+      const isDay = hr >= 7.5 && hr <= 16.8;
+      document.documentElement.setAttribute("data-circadian-day", isDay ? "true" : "false");
+      document.documentElement.setAttribute("data-light-surface", isDay ? "on" : "off");
     } else {
       document.documentElement.removeAttribute("data-circadian-day");
     }
@@ -2053,7 +2653,8 @@
 
   function renderFxOverlay() {
     if (!fxCtx) return;
-    const needDraw = sparks.length > 0 || ripples.length > 0 || cursorTrail.length > 0 || state.constellation;
+    const needDraw =
+      sparks.length > 0 || ripples.length > 0 || cursorTrail.length > 0 || state.constellation || state.ambientParticles;
     if (!needDraw) {
       if (fxCanvas.dataset.dirty === "1") {
         fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
@@ -2093,10 +2694,13 @@
       }
     }
 
-    // 2. 漂浮星尘与光标引力星座连线（独立开关，默认关闭）
+    // 2. 漂浮星尘与光标引力星座连线（默认开启，零 shadowBlur 双层圆绘制以保持极低 CPU 占用）
     if (state.constellation) {
       const w = fxCanvas.width;
       const h = fxCanvas.height;
+      const nearNodes = [];
+      const secondary = palette[1] || accent;
+      fxCtx.lineCap = "round";
       for (let i = 0; i < dustNodes.length; i += 1) {
         const nd = dustNodes[i];
         nd.x += nd.vx;
@@ -2108,30 +2712,161 @@
 
         const dx = cursorClientX - nd.x;
         const dy = cursorClientY - nd.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist < 155 && dist > 6) {
-          const pull = (1 - dist / 155) * 0.45;
-          nd.x += (dx / dist) * pull;
-          nd.y += (dy / dist) * pull;
+        const distSq = dx * dx + dy * dy;
+        const isNear = distSq < 44100; // 210^2
+        if (isNear) {
+          const dist = Math.sqrt(distSq);
+          nearNodes.push(nd);
+          if (dist > 85) {
+            // 远区微弱引力靠近，同时带一丝切向环绕
+            const pull = (1 - dist / 210) * 0.14;
+            nd.x += (dx / dist) * pull - (dy / dist) * 0.12;
+            nd.y += (dy / dist) * pull + (dx / dist) * 0.12;
+          } else if (dist > 1) {
+            // 近区柔和排斥缓冲，防止星尘被吸到鼠标下凝成一团
+            const push = (1 - dist / 85) * 0.42;
+            nd.x -= (dx / dist) * push;
+            nd.y -= (dy / dist) * push;
+          }
 
-          fxCtx.save();
           fxCtx.beginPath();
           fxCtx.moveTo(nd.x, nd.y);
           fxCtx.lineTo(cursorClientX, cursorClientY);
           fxCtx.strokeStyle = accent;
-          fxCtx.globalAlpha = (1 - dist / 155) * 0.32;
-          fxCtx.lineWidth = 0.75;
+          fxCtx.globalAlpha = (1 - dist / 210) * 0.5;
+          fxCtx.lineWidth = 1.0;
           fxCtx.stroke();
-          fxCtx.restore();
         }
 
-        fxCtx.save();
-        fxCtx.fillStyle = i % 2 === 0 ? accent : palette[1];
-        fxCtx.globalAlpha = dist < 155 ? 0.65 : 0.22;
+        const r = isNear ? nd.r * 1.25 : nd.r;
+        const fill = i % 2 === 0 ? accent : secondary;
+        // 外圈柔和光晕（用低透明大圆替代高开销 shadowBlur）
+        fxCtx.fillStyle = fill;
+        fxCtx.globalAlpha = isNear ? 0.22 : 0.1;
         fxCtx.beginPath();
-        fxCtx.arc(nd.x, nd.y, nd.r, 0, Math.PI * 2);
+        fxCtx.arc(nd.x, nd.y, r * 2.5, 0, Math.PI * 2);
         fxCtx.fill();
-        fxCtx.restore();
+        // 内核星点
+        fxCtx.globalAlpha = isNear ? 0.88 : 0.42;
+        fxCtx.beginPath();
+        fxCtx.arc(nd.x, nd.y, r, 0, Math.PI * 2);
+        fxCtx.fill();
+      }
+
+      // 光标附近的星尘两两互连，同时保持最小安全间距避免抱团
+      fxCtx.strokeStyle = secondary;
+      fxCtx.lineWidth = 0.8;
+      for (let i = 0; i < nearNodes.length; i += 1) {
+        const a = nearNodes[i];
+        for (let j = i + 1; j < nearNodes.length; j += 1) {
+          const b = nearNodes[j];
+          const sdx = a.x - b.x;
+          const sdy = a.y - b.y;
+          const dSq = sdx * sdx + sdy * sdy;
+          if (dSq < 16900) { // 130^2
+            const d = Math.sqrt(dSq);
+            if (d < 42 && d > 0.5) {
+              const sep = (1 - d / 42) * 0.35;
+              const nx = (sdx / d) * sep;
+              const ny = (sdy / d) * sep;
+              a.x += nx;
+              a.y += ny;
+              b.x -= nx;
+              b.y -= ny;
+            }
+            fxCtx.globalAlpha = (1 - d / 130) * 0.3;
+            fxCtx.beginPath();
+            fxCtx.moveTo(a.x, a.y);
+            fxCtx.lineTo(b.x, b.y);
+            fxCtx.stroke();
+          }
+        }
+      }
+      fxCtx.globalAlpha = 1;
+    }
+
+    // 2.5 场景专属飘浮微粒（花瓣 / 雪花 / 萤火 / 暖金箔 / 火星，自动适配当前场景）
+    if (state.ambientParticles) {
+      const w = fxCanvas.width;
+      const h = fxCanvas.height;
+      const nowSec = performance.now() * 0.001;
+      const sc = state.scene;
+      const isFalling = sc === "sakura" || sc === "snowfall";
+      const isRising = sc === "ember" || sc === "dune" || sc === "changan" || sc === "bamboo";
+      const isPetal = sc === "sakura";
+      const isSnow = sc === "snowfall";
+      const isFirefly = sc === "bamboo" || sc === "inkwash";
+      const isGold = sc === "matcha" || sc === "sunlit";
+
+      for (let i = 0; i < driftMotes.length; i += 1) {
+        const m = driftMotes[i];
+        const sway = Math.sin(nowSec * 0.8 + m.phase) * 0.45;
+        if (isFalling) {
+          m.x += (isPetal ? 0.55 : 0.25) * m.speed + sway * 0.6;
+          m.y += (isSnow ? 0.85 : 0.68) * m.speed;
+        } else if (isRising) {
+          m.x += sway * 0.65;
+          m.y -= (sc === "ember" ? 0.82 : 0.42) * m.speed;
+        } else {
+          m.x += sway * 0.45 + 0.14 * m.speed;
+          m.y += Math.cos(nowSec * 0.6 + m.phase) * 0.28;
+        }
+        m.rot += 0.015 * m.speed;
+
+        if (m.x < -12) m.x = w + 10;
+        if (m.x > w + 12) m.x = -10;
+        if (m.y < -12) m.y = h + 10;
+        if (m.y > h + 12) m.y = -10;
+
+        const blink = isFirefly ? 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(nowSec * 2.1 + m.phase)) : 0.72;
+        if (isPetal) {
+          fxCtx.save();
+          fxCtx.translate(m.x, m.y);
+          fxCtx.rotate(m.rot);
+          fxCtx.fillStyle = i % 2 === 0 ? "#fbcfe8" : "#f9a8d4";
+          fxCtx.globalAlpha = 0.52;
+          fxCtx.beginPath();
+          fxCtx.ellipse(0, 0, m.size * 1.45, m.size * 0.72, 0, 0, Math.PI * 2);
+          fxCtx.fill();
+          fxCtx.restore();
+        } else {
+          const color = isSnow
+            ? "#e2f1ff"
+            : isFirefly
+              ? "#6ee7b7"
+              : isGold
+                ? "#c9a44c"
+                : i % 2 === 0
+                  ? accent
+                  : palette[1] || accent;
+          fxCtx.fillStyle = color;
+          // 柔和外晕
+          fxCtx.globalAlpha = blink * (isSnow ? 0.18 : 0.16);
+          fxCtx.beginPath();
+          fxCtx.arc(m.x, m.y, m.size * 2.3, 0, Math.PI * 2);
+          fxCtx.fill();
+          // 粒子内核
+          fxCtx.globalAlpha = blink * (isSnow ? 0.78 : isGold ? 0.56 : 0.68);
+          fxCtx.beginPath();
+          fxCtx.arc(m.x, m.y, m.size * 0.85, 0, Math.PI * 2);
+          fxCtx.fill();
+        }
+      }
+      fxCtx.globalAlpha = 1;
+    }
+
+    // 避让聊天与预览中的图片/视频区域，防止星尘或氛围微粒覆盖在图片画面上干扰观图
+    if (state.constellation || state.ambientParticles) {
+      const w = fxCanvas.width;
+      const h = fxCanvas.height;
+      const mediaEls = document.querySelectorAll(
+        '[data-main-content-body] img, [data-side-panel-body] img, [role="dialog"] img, [data-main-content-body] video, [data-side-panel-body] video'
+      );
+      for (let i = 0; i < mediaEls.length; i += 1) {
+        const r = mediaEls[i].getBoundingClientRect();
+        if (r.width >= 80 && r.height >= 60 && r.bottom > 0 && r.top < h && r.right > 0 && r.left < w) {
+          fxCtx.clearRect(r.left, r.top, r.width, r.height);
+        }
       }
     }
 
@@ -2184,21 +2919,33 @@
     root = document.createElement("div");
     root.id = UI_ROOT_ID;
 
-    const SCENES_META = [
+    const SCENES_DARK = [
       { id: "cyberrain", label: "🌧️ 赛博雨夜" },
+      { id: "changan", label: "🏮 长安雨巷" },
+      { id: "snowfall", label: "❄️ 极地雪夜" },
       { id: "cosmic", label: "🌌 宇宙星空" },
       { id: "blackhole", label: "🕳️ 星际黑洞" },
       { id: "aurora", label: "✨ 北极极光" },
-      { id: "circadian", label: "🌅 真实昼夜" },
+      { id: "biolum", label: "🪼 荧光海滩" },
+      { id: "bamboo", label: "🎋 竹林雾雨" },
+      { id: "prism", label: "🔮 棱镜极光" },
+      { id: "dune", label: "🏜️ 沙丘星夜" },
       { id: "synthwave", label: "🌇 蒸汽波网格" },
       { id: "abyssal", label: "🌊 深海荧光" },
-      { id: "wallpaper", label: "🎬 动态壁纸" },
       { id: "chrome", label: "🫧 液态金属" },
       { id: "sakura", label: "🌸 樱吹雪夜" },
       { id: "ember", label: "🔥 火山余烬" },
+      { id: "circadian", label: "🌅 真实昼夜" },
+    ];
+    const SCENES_LIGHT_AND_BASE = [
+      { id: "sunlit", label: "🌤️ 午后窗影" },
       { id: "inkwash", label: "🏔️ 水墨云海" },
+      { id: "matcha", label: "🍵 禅意抹茶" },
+      { id: "wallpaper", label: "🎬 动态壁纸" },
       { id: "none", label: "☕ 纯净编辑室" },
     ];
+    const VALID_TABS = new Set(["scenes", "visual", "fx", "focus"]);
+    const initTab = VALID_TABS.has(state.activeTab) ? state.activeTab : "scenes";
 
     root.innerHTML = `
       <div class="agy-studio-panel" data-open="false">
@@ -2206,97 +2953,144 @@
           <span>✦ 主题工坊</span>
           <button type="button" class="agy-studio-close" title="收起">×</button>
         </div>
-        <div class="agy-studio-sec-label">实时场景</div>
-        <div class="agy-studio-grid">
-          ${SCENES_META.map(
-            (s) =>
-              `<button type="button" class="agy-scene-btn" data-scene-id="${s.id}">${s.label}</button>`
-          ).join("")}
+        <div class="agy-studio-tabs" role="tablist">
+          <button type="button" class="agy-tab-btn ${initTab === "scenes" ? "active" : ""}" data-tab="scenes">🎨 场景</button>
+          <button type="button" class="agy-tab-btn ${initTab === "visual" ? "active" : ""}" data-tab="visual">👁️ 视觉</button>
+          <button type="button" class="agy-tab-btn ${initTab === "fx" ? "active" : ""}" data-tab="fx">✨ 动效</button>
+          <button type="button" class="agy-tab-btn ${initTab === "focus" ? "active" : ""}" data-tab="focus">🎧 专注</button>
         </div>
-        <div class="agy-wp-bar">
-          <div class="agy-wp-actions">
-            <button type="button" class="agy-wp-pick-btn" id="agy-wp-pick">📁 添加本地视频 / 图片</button>
-            <button type="button" class="agy-mini-btn" id="agy-wp-next" title="切换下一张壁纸">⏭ 换一张</button>
+
+        <div class="agy-tab-body">
+          <!-- 分页 1：场景与壁纸 -->
+          <div class="agy-tab-pane ${initTab === "scenes" ? "active" : ""}" data-pane="scenes">
+            <div class="agy-studio-sec-label">深色与昼夜动态场景</div>
+            <div class="agy-studio-grid">
+              ${SCENES_DARK.map(
+                (s) =>
+                  `<button type="button" class="agy-scene-btn" data-scene-id="${s.id}">${s.label}</button>`
+              ).join("")}
+            </div>
+            <div class="agy-studio-sec-label">浅色雅致 / 壁纸与纯色</div>
+            <div class="agy-studio-grid">
+              ${SCENES_LIGHT_AND_BASE.map(
+                (s) =>
+                  `<button type="button" class="agy-scene-btn" data-scene-id="${s.id}">${s.label}</button>`
+              ).join("")}
+            </div>
+            <div class="agy-wp-bar">
+              <div class="agy-wp-actions">
+                <button type="button" class="agy-wp-pick-btn" id="agy-wp-pick">📁 添加本地视频 / 图片</button>
+                <button type="button" class="agy-mini-btn" id="agy-wp-next" title="切换下一张壁纸">⏭ 换一张</button>
+              </div>
+              <input type="file" id="agy-wp-file" multiple accept="video/mp4,video/webm,video/quicktime,image/*" style="display:none" />
+              <div class="agy-wp-list" id="agy-wp-list"></div>
+              <div class="agy-wp-subrow">
+                <label><input type="checkbox" id="agy-wp-rotate" ${state.wpAutoRotate ? "checked" : ""}/> 10 分钟自动轮换壁纸</label>
+              </div>
+            </div>
           </div>
-          <input type="file" id="agy-wp-file" multiple accept="video/mp4,video/webm,video/quicktime,image/*" style="display:none" />
-          <div class="agy-wp-list" id="agy-wp-list"></div>
-          <div class="agy-wp-subrow">
-            <label><input type="checkbox" id="agy-wp-rotate" ${state.wpAutoRotate ? "checked" : ""}/> 10分钟轮换</label>
-            <label><input type="checkbox" id="agy-auto-accent" ${state.autoAccent ? "checked" : ""}/> 🎨 自动取色</label>
-            <label><input type="checkbox" id="agy-adaptive-comfort" ${state.adaptiveComfort ? "checked" : ""}/> 👁️ 视觉护眼</label>
+
+          <!-- 分页 2：视觉、护眼与配色 -->
+          <div class="agy-tab-pane ${initTab === "visual" ? "active" : ""}" data-pane="visual">
+            <div class="agy-studio-sec-label">通透度、模糊与排版</div>
+            <label class="agy-slider-row">
+              <span>遮罩浓度</span>
+              <input type="range" id="agy-sl-alpha" min="0.06" max="0.78" step="0.02" value="${state.alpha}" />
+              <em id="agy-val-alpha">${Math.round(state.alpha * 100)}%</em>
+            </label>
+            <label class="agy-slider-row">
+              <span>画面模糊</span>
+              <input type="range" id="agy-sl-mainblur" min="0" max="16" step="1" value="${state.mainBlur}" />
+              <em id="agy-val-mainblur">${state.mainBlur}px</em>
+            </label>
+            <label class="agy-slider-row">
+              <span>侧栏模糊</span>
+              <input type="range" id="agy-sl-blur" min="0" max="24" step="1" value="${state.blur}" />
+              <em id="agy-val-blur">${state.blur}px</em>
+            </label>
+            <label class="agy-slider-row">
+              <span>对话宽度</span>
+              <input type="range" id="agy-sl-chatw" min="720" max="1560" step="20" value="${state.chatWidth}" />
+              <em id="agy-val-chatw">${state.chatWidth >= 1560 ? "满宽" : `${state.chatWidth}`}</em>
+            </label>
+            <div class="agy-studio-sec-label">护眼与高亮主色</div>
+            <div class="agy-toggles">
+              <label><input type="checkbox" id="agy-adaptive-comfort" ${state.adaptiveComfort ? "checked" : ""}/> 👁️ 自适应护眼</label>
+              <label><input type="checkbox" id="agy-auto-accent" ${state.autoAccent ? "checked" : ""}/> 🎨 壁纸自动取色</label>
+            </div>
+            <div class="agy-accent-row">
+              <span>自定义高亮主色</span>
+              <input type="color" id="agy-accent-picker" value="${state.customAccent || "#22d3ee"}" title="自定义界面高亮色" />
+              <button type="button" class="agy-mini-btn" id="agy-accent-reset">恢复默认</button>
+            </div>
           </div>
-          <div class="agy-accent-row">
-            <span>高亮主色</span>
-            <input type="color" id="agy-accent-picker" value="${state.customAccent || "#22d3ee"}" title="自定义界面高亮色" />
-            <button type="button" class="agy-mini-btn" id="agy-accent-reset">恢复默认</button>
+
+          <!-- 分页 3：质感与交互动效 -->
+          <div class="agy-tab-pane ${initTab === "fx" ? "active" : ""}" data-pane="fx">
+            <div class="agy-studio-sec-label">界面光效与反馈</div>
+            <div class="agy-toggles">
+              <label><input type="checkbox" id="agy-fx-spotlight" ${state.spotlight ? "checked" : ""}/> 💎 边框聚光灯</label>
+              <label><input type="checkbox" id="agy-fx-halo" ${state.cursorHalo ? "checked" : ""}/> 💡 鼠标光晕</label>
+              <label><input type="checkbox" id="agy-fx-aipulse" ${state.aiPulse ? "checked" : ""}/> ✨ AI 流光环</label>
+              <label><input type="checkbox" id="agy-fx-chime" ${state.doneChime ? "checked" : ""}/> 🔔 完成提示</label>
+              <label><input type="checkbox" id="agy-fx-eco" ${state.ecoMode ? "checked" : ""}/> 🔋 省电模式</label>
+            </div>
+            <div class="agy-studio-sec-label">粒子与鼠标特效</div>
+            <div class="agy-toggles">
+              <label><input type="checkbox" id="agy-fx-particles" ${state.ambientParticles ? "checked" : ""}/> 🌸 氛围微粒</label>
+              <label><input type="checkbox" id="agy-fx-constellation" ${state.constellation ? "checked" : ""}/> 🧲 星尘星座</label>
+              <label><input type="checkbox" id="agy-fx-sparks" ${state.typingSparks ? "checked" : ""}/> ⌨️ 打字火花</label>
+              <label><input type="checkbox" id="agy-fx-ripple" ${state.clickRipple ? "checked" : ""}/> 💧 点击涟漪</label>
+              <label><input type="checkbox" id="agy-fx-trail" ${state.cursorTrail ? "checked" : ""}/> ☄️ 鼠标轨迹</label>
+            </div>
+            <div id="agy-fx-scene-exclusive" style="${state.scene === "cyberrain" ? "" : "display:none"}">
+              <div class="agy-studio-sec-label">当前主题专属</div>
+              <div class="agy-toggles">
+                <label><input type="checkbox" id="agy-fx-lightning" ${state.lightning ? "checked" : ""}/> ⚡ 雨夜闪电</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 分页 4：专注、番茄钟与音效 -->
+          <div class="agy-tab-pane ${initTab === "focus" ? "active" : ""}" data-pane="focus">
+            <div class="agy-studio-sec-label">禅模式与专注番茄钟</div>
+            <div class="agy-pomo-box">
+              <div class="agy-pomo-top">
+                <label><input type="checkbox" id="agy-fx-zen" ${state.zenMode ? "checked" : ""}/> 🧘 禅模式 <small>(⌥⇧Z)</small></label>
+                <span class="agy-pomo-clock" id="agy-pomo-time">${formatMMSS(pomoRemainSec)}</span>
+              </div>
+              <div class="agy-pomo-btns">
+                <button type="button" class="agy-mini-btn primary" id="agy-pomo-toggle">▶ 开始专注</button>
+                <button type="button" class="agy-mini-btn" id="agy-pomo-25">25m</button>
+                <button type="button" class="agy-mini-btn" id="agy-pomo-50">50m</button>
+                <button type="button" class="agy-mini-btn" id="agy-pomo-reset">重置</button>
+              </div>
+            </div>
+            <div class="agy-studio-sec-label">客制化机械键盘音效</div>
+            <div class="agy-key-row">
+              <select id="agy-key-sound" class="agy-select">
+                <option value="off" ${state.keySound === "off" ? "selected" : ""}>🔇 关闭按键音</option>
+                <option value="thock" ${state.keySound === "thock" ? "selected" : ""}>⌨️ 温润麻将音 (Thock)</option>
+                <option value="clicky" ${state.keySound === "clicky" ? "selected" : ""}>💠 清脆青轴 (Clicky)</option>
+                <option value="typewriter" ${state.keySound === "typewriter" ? "selected" : ""}>🎞️ 复古打字机</option>
+              </select>
+            </div>
+            <label class="agy-slider-row">
+              <span>按键音量</span>
+              <input type="range" id="agy-sl-keyvol" min="0.05" max="1" step="0.05" value="${state.keyVol}" />
+              <em id="agy-val-keyvol">${Math.round(state.keyVol * 100)}%</em>
+            </label>
+            <div class="agy-studio-sec-label">场景氛围白噪音</div>
+            <div class="agy-toggles">
+              <label><input type="checkbox" id="agy-fx-audio" ${state.ambientAudio ? "checked" : ""}/> 🎧 开启氛围白噪音</label>
+            </div>
+            <label class="agy-slider-row">
+              <span>氛围音量</span>
+              <input type="range" id="agy-sl-vol" min="0.05" max="1" step="0.05" value="${state.ambientVol}" />
+              <em id="agy-val-vol">${Math.round(state.ambientVol * 100)}%</em>
+            </label>
           </div>
         </div>
-        <div class="agy-studio-sec-label">禅模式与专注番茄钟</div>
-        <div class="agy-pomo-box">
-          <div class="agy-pomo-top">
-            <label><input type="checkbox" id="agy-fx-zen" ${state.zenMode ? "checked" : ""}/> 🧘 禅模式 <small>(⌥⇧Z)</small></label>
-            <span class="agy-pomo-clock" id="agy-pomo-time">${formatMMSS(pomoRemainSec)}</span>
-          </div>
-          <div class="agy-pomo-btns">
-            <button type="button" class="agy-mini-btn primary" id="agy-pomo-toggle">▶ 开始专注</button>
-            <button type="button" class="agy-mini-btn" id="agy-pomo-25">25m</button>
-            <button type="button" class="agy-mini-btn" id="agy-pomo-50">50m</button>
-            <button type="button" class="agy-mini-btn" id="agy-pomo-reset">重置</button>
-          </div>
-        </div>
-        <div class="agy-studio-sec-label">机械键盘音效</div>
-        <div class="agy-key-row">
-          <select id="agy-key-sound" class="agy-select">
-            <option value="off" ${state.keySound === "off" ? "selected" : ""}>🔇 关闭按键音</option>
-            <option value="thock" ${state.keySound === "thock" ? "selected" : ""}>⌨️ 温润麻将音 (Thock)</option>
-            <option value="clicky" ${state.keySound === "clicky" ? "selected" : ""}>💠 清脆青轴 (Clicky)</option>
-            <option value="typewriter" ${state.keySound === "typewriter" ? "selected" : ""}>🎞️ 复古打字机</option>
-          </select>
-        </div>
-        <label class="agy-slider-row">
-          <span>按键音量</span>
-          <input type="range" id="agy-sl-keyvol" min="0.05" max="1" step="0.05" value="${state.keyVol}" />
-          <em id="agy-val-keyvol">${Math.round(state.keyVol * 100)}%</em>
-        </label>
-        <div class="agy-studio-sec-label">通透度与磨砂</div>
-        <label class="agy-slider-row">
-          <span>遮罩浓度</span>
-          <input type="range" id="agy-sl-alpha" min="0.06" max="0.78" step="0.02" value="${state.alpha}" />
-          <em id="agy-val-alpha">${Math.round(state.alpha * 100)}%</em>
-        </label>
-        <label class="agy-slider-row">
-          <span>画面模糊</span>
-          <input type="range" id="agy-sl-mainblur" min="0" max="16" step="1" value="${state.mainBlur}" />
-          <em id="agy-val-mainblur">${state.mainBlur}px</em>
-        </label>
-        <label class="agy-slider-row">
-          <span>侧栏模糊</span>
-          <input type="range" id="agy-sl-blur" min="0" max="24" step="1" value="${state.blur}" />
-          <em id="agy-val-blur">${state.blur}px</em>
-        </label>
-        <label class="agy-slider-row">
-          <span>对话宽度</span>
-          <input type="range" id="agy-sl-chatw" min="720" max="1560" step="20" value="${state.chatWidth}" />
-          <em id="agy-val-chatw">${state.chatWidth >= 1560 ? "满宽" : `${state.chatWidth}`}</em>
-        </label>
-        <div class="agy-studio-sec-label">交互与氛围特效</div>
-        <div class="agy-toggles">
-          <label><input type="checkbox" id="agy-fx-eco" ${state.ecoMode ? "checked" : ""}/> 🔋 省电模式</label>
-          <label><input type="checkbox" id="agy-fx-lightning" ${state.lightning ? "checked" : ""}/> ⚡ 雨夜闪电</label>
-          <label><input type="checkbox" id="agy-fx-aipulse" ${state.aiPulse ? "checked" : ""}/> ✨ AI 流光环</label>
-          <label><input type="checkbox" id="agy-fx-spotlight" ${state.spotlight ? "checked" : ""}/> 💎 边框聚光灯</label>
-          <label><input type="checkbox" id="agy-fx-sparks" ${state.typingSparks ? "checked" : ""}/> ⌨️ 打字火花</label>
-          <label><input type="checkbox" id="agy-fx-ripple" ${state.clickRipple ? "checked" : ""}/> 💧 点击涟漪</label>
-          <label><input type="checkbox" id="agy-fx-trail" ${state.cursorTrail ? "checked" : ""}/> ☄️ 鼠标轨迹</label>
-          <label><input type="checkbox" id="agy-fx-constellation" ${state.constellation ? "checked" : ""}/> 🧲 星尘星座</label>
-          <label><input type="checkbox" id="agy-fx-chime" ${state.doneChime ? "checked" : ""}/> 🔔 完成提示</label>
-          <label><input type="checkbox" id="agy-fx-audio" ${state.ambientAudio ? "checked" : ""}/> 🎧 氛围白噪音</label>
-        </div>
-        <label class="agy-slider-row">
-          <span>氛围音量</span>
-          <input type="range" id="agy-sl-vol" min="0.05" max="1" step="0.05" value="${state.ambientVol}" />
-          <em id="agy-val-vol">${Math.round(state.ambientVol * 100)}%</em>
-        </label>
       </div>
       <button type="button" class="agy-studio-fab" title="切换主题与特效">✦ 主题</button>
     `;
@@ -2306,6 +3100,23 @@
     const panel = root.querySelector(".agy-studio-panel");
     const fab = root.querySelector(".agy-studio-fab");
     const closeBtn = root.querySelector(".agy-studio-close");
+
+    // 优雅分页切换
+    root.querySelectorAll(".agy-tab-btn").forEach((tabBtn) => {
+      tabBtn.addEventListener("click", () => {
+        const tab = tabBtn.getAttribute("data-tab");
+        if (!tab || !VALID_TABS.has(tab)) return;
+        state.activeTab = tab;
+        root.querySelectorAll(".agy-tab-btn").forEach((b) => {
+          b.classList.toggle("active", b.getAttribute("data-tab") === tab);
+        });
+        root.querySelectorAll(".agy-tab-pane").forEach((p) => {
+          p.classList.toggle("active", p.getAttribute("data-pane") === tab);
+        });
+        if (tab === "visual") syncChatWidthSlider();
+        saveState();
+      });
+    });
 
     const syncButtons = () => {
       root.querySelectorAll(".agy-scene-btn").forEach((b) => {
@@ -2431,7 +3242,9 @@
     root.querySelectorAll(".agy-scene-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const nextScene = btn.getAttribute("data-scene-id");
+        const changed = nextScene !== state.scene;
         state.scene = nextScene;
+        if (changed) triggerSceneMorph();
         applyStateToDOM();
         syncAmbientAudio();
         saveState();
@@ -2501,6 +3314,15 @@
       applyStateToDOM();
       saveState();
     });
+    root.querySelector("#agy-fx-halo").addEventListener("change", (e) => {
+      state.cursorHalo = e.target.checked;
+      applyStateToDOM();
+      saveState();
+    });
+    root.querySelector("#agy-fx-particles").addEventListener("change", (e) => {
+      state.ambientParticles = e.target.checked;
+      saveState();
+    });
     root.querySelector("#agy-fx-sparks").addEventListener("change", (e) => {
       state.typingSparks = e.target.checked;
       saveState();
@@ -2551,6 +3373,8 @@
     if (wpRotateTimer) clearInterval(wpRotateTimer);
     if (accentSampleTimer) clearInterval(accentSampleTimer);
     if (pomoInterval) clearInterval(pomoInterval);
+    if (sceneMorphTimer) clearTimeout(sceneMorphTimer);
+    resetMagneticTargets();
     stopAmbientAudio();
     if (audioCtx) {
       try {
@@ -2562,6 +3386,8 @@
     }
     window.removeEventListener("mousemove", onMouseMove);
     window.removeEventListener("pointerdown", onPointerDown);
+    window.removeEventListener("click", onCopyButtonClick, true);
+    document.removeEventListener("copy", onDocumentCopy, true);
     window.removeEventListener("keydown", onKeyDown, true);
     window.removeEventListener("keyup", onKeyUp, true);
     window.removeEventListener("resize", resizeCanvases);
@@ -2579,19 +3405,37 @@
       URL.revokeObjectURL(wallpaperObjectUrl);
       wallpaperObjectUrl = null;
     }
-    [BG_CANVAS_ID, WP_MEDIA_ID, FX_CANVAS_ID, POMO_BAR_ID, UI_ROOT_ID].forEach((id) => {
+    [BG_CANVAS_ID, WP_MEDIA_ID, HALO_ID, "agy-wp-vignette", FX_CANVAS_ID, POMO_BAR_ID, UI_ROOT_ID].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.remove();
     });
     const html = document.documentElement;
-    html.removeAttribute("data-cosmic-bg");
-    html.removeAttribute("data-scene");
-    html.removeAttribute("data-ai-busy");
-    html.removeAttribute("data-ai-pulse-enabled");
-    html.removeAttribute("data-zen-mode");
-    html.removeAttribute("data-custom-accent");
-    html.removeAttribute("data-light-surface");
-    html.removeAttribute("data-spotlight");
+    [
+      "data-cosmic-bg",
+      "data-scene",
+      "data-ai-busy",
+      "data-ai-pulse-enabled",
+      "data-zen-mode",
+      "data-adaptive-comfort",
+      "data-custom-accent",
+      "data-light-surface",
+      "data-circadian-day",
+      "data-spotlight",
+      "data-cursor-halo",
+      "data-magnetic",
+      "data-wp-filter",
+    ].forEach((attr) => html.removeAttribute(attr));
+    html.classList.remove("agy-scene-morphing");
+    [
+      "--studio-glass-alpha",
+      "--studio-main-alpha",
+      "--studio-main-blur",
+      "--studio-sidebar-blur",
+      "--studio-chat-width",
+      "--studio-adaptive-scrim",
+      "--studio-chip-alpha",
+      "--studio-custom-accent",
+    ].forEach((prop) => html.style.removeProperty(prop));
   };
 
   resizeCanvases();
@@ -2652,6 +3496,7 @@
     window.__agyLoadedScenes = Object.keys(pipelines);
     const startTime = performance.now();
     let lastGpuFrame = 0;
+    let lastFxFrame = 0;
 
     const frame = (now) => {
       if (destroyed) return;
@@ -2659,13 +3504,19 @@
       if (document.hidden) return;
 
       resizeCanvases();
-      renderFxOverlay();
+
+      // 省电模式 30fps + 无操作 10 秒自动降频 20fps（AI 思考或打字火花/涟漪时保持流畅）
+      const isIdle = aiBusyTarget < 0.5 && now - lastActivityTime > 10000;
+      const hasBurstFx = sparks.length > 0 || ripples.length > 0 || cursorTrail.length > 0;
+      const fxMinInterval = hasBurstFx ? 0 : isIdle ? 50 : state.ecoMode ? 33.3 : 16.6;
+      if (fxMinInterval === 0 || now - lastFxFrame >= fxMinInterval) {
+        lastFxFrame = now;
+        renderFxOverlay();
+      }
 
       const activePipeline = pipelines[state.scene];
       if (!activePipeline) return;
 
-      // 省电模式 30fps + 无操作 10 秒自动降频 20fps（AI 思考时保持流畅）
-      const isIdle = aiBusyTarget < 0.5 && now - lastActivityTime > 10000;
       const minInterval = isIdle ? 50 : state.ecoMode ? 33.3 : 0;
       if (minInterval > 0 && now - lastGpuFrame < minInterval) return;
       lastGpuFrame = now;

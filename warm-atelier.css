@@ -986,6 +986,170 @@ html[data-cosmic-bg="on"][data-scene="inkwash"] pre {
   border-color: rgba(31, 36, 33, 0.2) !important;
 }
 
+/* (12) 荧光海滩（Bioluminescent Shore） */
+html[data-cosmic-bg="on"][data-scene="biolum"] {
+  --atelier-accent: #38bdf8;
+  --primary: #38bdf8 !important;
+  --link: #7dd3fc !important;
+  --focus-ring-color: #38bdf8 !important;
+  --sidebar-secondary: rgba(56, 189, 248, 0.2) !important;
+  --border: rgba(56, 189, 248, 0.16) !important;
+}
+html[data-cosmic-bg="on"][data-scene="biolum"] body::before {
+  background: linear-gradient(90deg, #00e5ff 0%, #38bdf8 52%, transparent 100%) !important;
+}
+html[data-cosmic-bg="on"][data-scene="biolum"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  background: rgba(6, 13, 28, var(--studio-glass-alpha, 0.24)) !important;
+  border-color: rgba(56, 189, 248, 0.26) !important;
+}
+
+/* (13) 竹林雾雨（Misty Bamboo Grove） */
+html[data-cosmic-bg="on"][data-scene="bamboo"] {
+  --atelier-accent: #34d399;
+  --primary: #34d399 !important;
+  --link: #6ee7b7 !important;
+  --focus-ring-color: #34d399 !important;
+  --sidebar-secondary: rgba(52, 211, 153, 0.18) !important;
+  --border: rgba(52, 211, 153, 0.16) !important;
+}
+html[data-cosmic-bg="on"][data-scene="bamboo"] body::before {
+  background: linear-gradient(90deg, #34d399 0%, #6ee7b7 54%, transparent 100%) !important;
+}
+html[data-cosmic-bg="on"][data-scene="bamboo"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  background: rgba(7, 20, 18, var(--studio-glass-alpha, 0.24)) !important;
+  border-color: rgba(52, 211, 153, 0.24) !important;
+}
+
+/* (14) 棱镜极光（Glass Prism Caustics） */
+html[data-cosmic-bg="on"][data-scene="prism"] {
+  --atelier-accent: #c084fc;
+  --primary: #c084fc !important;
+  --link: #38bdf8 !important;
+  --focus-ring-color: #c084fc !important;
+  --sidebar-secondary: rgba(192, 132, 252, 0.2) !important;
+  --border: rgba(192, 132, 252, 0.18) !important;
+}
+html[data-cosmic-bg="on"][data-scene="prism"] body::before {
+  background: linear-gradient(90deg, #c084fc 0%, #38bdf8 48%, #fbbf24 84%, transparent 100%) !important;
+}
+html[data-cosmic-bg="on"][data-scene="prism"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  background: rgba(10, 10, 22, var(--studio-glass-alpha, 0.24)) !important;
+  border-color: rgba(192, 132, 252, 0.26) !important;
+}
+
+/* (15) 沙丘星夜（Desert Starlight） */
+html[data-cosmic-bg="on"][data-scene="dune"] {
+  --atelier-accent: #f59e0b;
+  --primary: #f59e0b !important;
+  --link: #fbbf24 !important;
+  --focus-ring-color: #f59e0b !important;
+  --sidebar-secondary: rgba(245, 158, 11, 0.2) !important;
+  --border: rgba(245, 158, 11, 0.16) !important;
+}
+html[data-cosmic-bg="on"][data-scene="dune"] body::before {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97757 55%, transparent 100%) !important;
+}
+html[data-cosmic-bg="on"][data-scene="dune"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  background: rgba(22, 14, 16, var(--studio-glass-alpha, 0.24)) !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+/* (16) 禅意抹茶（浅色系动态主题 · Zen Matcha Ripple） */
+html[data-cosmic-bg="on"][data-scene="matcha"] {
+  --atelier-accent: #4d7c5b;
+  --primary: #4d7c5b !important;
+  --link: #366144 !important;
+  --focus-ring-color: #4d7c5b !important;
+  --sidebar-secondary: rgba(77, 124, 91, 0.16) !important;
+  --glass: rgba(240, 245, 236, 0.94) !important;
+  --glass-border: rgba(45, 66, 52, 0.16) !important;
+}
+html[data-cosmic-bg="on"][data-scene="matcha"] body {
+  background-color: #e2eadc !important;
+  color: #1f2b22 !important;
+}
+html[data-cosmic-bg="on"][data-scene="matcha"] body::before {
+  background: linear-gradient(90deg, #4d7c5b 0%, #9b7b35 55%, transparent 100%) !important;
+}
+html[data-cosmic-bg="on"][data-scene="matcha"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  background: rgba(241, 246, 237, var(--studio-glass-alpha, 0.24)) !important;
+  border-color: rgba(45, 66, 52, 0.16) !important;
+  box-shadow: 0 12px 32px rgba(31, 43, 34, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.78) !important;
+}
+html[data-cosmic-bg="on"][data-scene="matcha"] [data-main-content-body],
+html[data-cosmic-bg="on"][data-scene="matcha"] [data-side-panel-body] {
+  background-color: rgba(241, 246, 237, var(--studio-main-alpha, 0.32)) !important;
+}
+html[data-cosmic-bg="on"][data-scene="matcha"] [data-testid="agent-input-box"] {
+  background-color: rgba(248, 251, 246, 0.84) !important;
+  border-color: rgba(45, 66, 52, 0.2) !important;
+}
+
+/* (17) 午后窗影（浅色系动态主题 · Sunlit Window Blinds） */
+html[data-cosmic-bg="on"][data-scene="sunlit"] {
+  --atelier-accent: #b87a3d;
+  --primary: #b87a3d !important;
+  --link: #9a6128 !important;
+  --focus-ring-color: #b87a3d !important;
+  --sidebar-secondary: rgba(184, 122, 61, 0.16) !important;
+  --glass: rgba(248, 244, 236, 0.94) !important;
+  --glass-border: rgba(92, 74, 56, 0.16) !important;
+}
+html[data-cosmic-bg="on"][data-scene="sunlit"] body {
+  background-color: #ece5d8 !important;
+  color: #261e17 !important;
+}
+html[data-cosmic-bg="on"][data-scene="sunlit"] body::before {
+  background: linear-gradient(90deg, #b87a3d 0%, #d9a05b 55%, transparent 100%) !important;
+}
+html[data-cosmic-bg="on"][data-scene="sunlit"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  background: rgba(250, 246, 238, var(--studio-glass-alpha, 0.24)) !important;
+  border-color: rgba(92, 74, 56, 0.16) !important;
+  box-shadow: 0 12px 32px rgba(56, 42, 28, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.82) !important;
+}
+html[data-cosmic-bg="on"][data-scene="sunlit"] [data-main-content-body],
+html[data-cosmic-bg="on"][data-scene="sunlit"] [data-side-panel-body] {
+  background-color: rgba(250, 246, 238, var(--studio-main-alpha, 0.32)) !important;
+}
+html[data-cosmic-bg="on"][data-scene="sunlit"] [data-testid="agent-input-box"] {
+  background-color: rgba(253, 250, 244, 0.86) !important;
+  border-color: rgba(92, 74, 56, 0.2) !important;
+}
+
+/* (18) 长安雨巷（Chang'an Lantern Rain） */
+html[data-cosmic-bg="on"][data-scene="changan"] {
+  --atelier-accent: #f97316;
+  --primary: #f97316 !important;
+  --link: #fb923c !important;
+  --focus-ring-color: #f97316 !important;
+  --sidebar-secondary: rgba(249, 115, 22, 0.2) !important;
+  --border: rgba(249, 115, 22, 0.18) !important;
+}
+html[data-cosmic-bg="on"][data-scene="changan"] body::before {
+  background: linear-gradient(90deg, #ef4444 0%, #f97316 54%, transparent 100%) !important;
+}
+html[data-cosmic-bg="on"][data-scene="changan"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  background: rgba(16, 12, 22, var(--studio-glass-alpha, 0.24)) !important;
+  border-color: rgba(249, 115, 22, 0.26) !important;
+}
+
+/* (19) 极地雪夜（Arctic Snowfall） */
+html[data-cosmic-bg="on"][data-scene="snowfall"] {
+  --atelier-accent: #93c5fd;
+  --primary: #93c5fd !important;
+  --link: #bae6fd !important;
+  --focus-ring-color: #93c5fd !important;
+  --sidebar-secondary: rgba(147, 197, 253, 0.18) !important;
+  --border: rgba(147, 197, 253, 0.18) !important;
+}
+html[data-cosmic-bg="on"][data-scene="snowfall"] body::before {
+  background: linear-gradient(90deg, #93c5fd 0%, #fbbf24 58%, transparent 100%) !important;
+}
+html[data-cosmic-bg="on"][data-scene="snowfall"] [data-testid="sidebar-split"] .contents > .bg-sidebar {
+  background: rgba(10, 16, 30, var(--studio-glass-alpha, 0.24)) !important;
+  border-color: rgba(147, 197, 253, 0.24) !important;
+}
+
 /* ==========================================================================
    17. 浅色场景 & 极亮壁纸全局高对比深墨字保护（data-light-surface="on"）
        彻底解决 Antigravity 深色模式下 dark:text-white 在宣纸/白雪浅底上发白看不清的问题
@@ -1143,20 +1307,60 @@ html[data-cosmic-bg="on"] [class*="settings" i] {
 }
 
 /* ==========================================================================
-   13. AI 思考流光呼吸环（AI 正在回复时自动点亮输入框外框）
+   13. AI 思考流光呼吸环（AI 正在回复时沿输入框边缘缓缓流转的极光光带）
+       使用 ::before + @property 旋转锥形渐变，避免被输入框自身的 box-shadow !important 屏蔽
    ========================================================================== */
-@keyframes agy-ai-pulse {
+@property --agy-ai-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes agy-ai-orbit {
+  to {
+    --agy-ai-angle: 360deg;
+  }
+}
+
+@keyframes agy-ai-breathe {
   0%, 100% {
-    box-shadow: 0 0 18px color-mix(in srgb, var(--primary) 35%, transparent), 0 0 0 1.5px color-mix(in srgb, var(--primary) 65%, transparent);
+    opacity: 0.72;
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 55%, transparent));
   }
   50% {
-    box-shadow: 0 0 34px color-mix(in srgb, var(--primary) 65%, transparent), 0 0 0 2px var(--primary);
+    opacity: 1;
+    filter: drop-shadow(0 0 18px color-mix(in srgb, var(--primary) 85%, transparent));
   }
 }
 
 html[data-ai-pulse-enabled="on"][data-ai-busy="true"] [data-testid="agent-input-box"] {
-  border-color: var(--primary) !important;
-  animation: agy-ai-pulse 1.8s ease-in-out infinite !important;
+  position: relative;
+}
+
+html[data-ai-pulse-enabled="on"][data-ai-busy="true"] [data-testid="agent-input-box"]::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 2px;
+  pointer-events: none;
+  z-index: 35;
+  background: conic-gradient(
+    from var(--agy-ai-angle),
+    transparent 0deg,
+    color-mix(in srgb, var(--primary) 35%, transparent) 42deg,
+    var(--primary) 82deg,
+    #ffffff 102deg,
+    var(--primary) 124deg,
+    transparent 175deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation:
+    agy-ai-orbit 2.8s linear infinite,
+    agy-ai-breathe 2.2s ease-in-out infinite;
 }
 
 /* ==========================================================================
@@ -1197,16 +1401,16 @@ html[data-ai-pulse-enabled="on"][data-ai-busy="true"] [data-testid="agent-input-
   position: absolute;
   right: 0;
   bottom: 42px;
-  width: 306px;
-  max-height: 78vh;
-  overflow-y: auto;
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(12, 15, 28, 0.94);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  width: 322px;
+  max-height: 76vh;
+  overflow: hidden;
+  padding: 13px 14px 14px;
+  border-radius: 18px;
+  background: rgba(11, 14, 26, 0.92);
+  backdrop-filter: blur(26px) saturate(140%);
+  -webkit-backdrop-filter: blur(26px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.14);
   color: #eef2ff;
   display: none;
   flex-direction: column;
@@ -1216,6 +1420,72 @@ html[data-ai-pulse-enabled="on"][data-ai-busy="true"] [data-testid="agent-input-
 #agy-theme-studio-root .agy-studio-panel[data-open="true"] {
   display: flex;
   animation: fade-in 160ms ease;
+}
+
+/* 优雅分页分段栏（Segmented Tab Bar） */
+#agy-theme-studio-root .agy-studio-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  padding: 3px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+#agy-theme-studio-root .agy-tab-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 5px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 150ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+#agy-theme-studio-root .agy-tab-btn:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+#agy-theme-studio-root .agy-tab-btn.active {
+  color: #ffffff;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--primary) 26%, rgba(255, 255, 255, 0.08));
+  border-color: color-mix(in srgb, var(--primary) 54%, rgba(255, 255, 255, 0.18));
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 22%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+#agy-theme-studio-root .agy-tab-body {
+  overflow-y: auto;
+  max-height: calc(76vh - 96px);
+  padding-right: 2px;
+}
+
+#agy-theme-studio-root .agy-tab-pane {
+  display: none;
+  flex-direction: column;
+  gap: 9px;
+}
+
+#agy-theme-studio-root .agy-tab-pane.active {
+  display: flex;
+  animation: agy-tab-in 170ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes agy-tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 #agy-theme-studio-root .agy-studio-head {
@@ -1645,28 +1915,28 @@ html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="o
 }
 
 /* VisionOS 级羽化光学字影：无明显阴影感，但在亮色鱼/白沙背景上瞬间分离文字轮廓 */
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] .prose,
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] p,
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] li,
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] h1,
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] h2,
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] h3,
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-side-panel-body],
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-testid="conversation-row-sidebar"] {
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-main-content-body] .prose,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-main-content-body] p,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-main-content-body] li,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-main-content-body] h1,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-main-content-body] h2,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-main-content-body] h3,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-side-panel-body],
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-testid="conversation-row-sidebar"] {
   text-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.56), 0 0 10px rgba(0, 0, 0, 0.24);
 }
 
 /* 文件变更条、工具卡片、行内代码胶囊：升级为高对比磨砂玻璃铭牌 */
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] .bg-card,
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] .border.rounded-lg,
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) [data-main-content-body] .border.rounded-xl {
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-main-content-body] .bg-card,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-main-content-body] .border.rounded-lg,
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) [data-main-content-body] .border.rounded-xl {
   background-color: rgba(10, 14, 26, var(--studio-chip-alpha, 0.62)) !important;
   border-color: rgba(255, 255, 255, 0.16) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;
 }
 
-html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-scene="inkwash"]):not([data-circadian-day="true"]) code:not(pre code) {
+html[data-cosmic-bg="on"][data-adaptive-comfort="on"]:not([data-light-surface="on"]) code:not(pre code) {
   background-color: rgba(10, 15, 30, 0.78) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   text-shadow: none !important;
@@ -1799,6 +2069,166 @@ html[data-cosmic-bg="on"][data-scene="cyberrain"] [data-testid="sidebar-split"] 
   border-radius: 9px !important;
   transition: background-color 140ms ease !important;
 }
+
+/* ==========================================================================
+   19. 场景丝滑转场与关键控件磁吸手感
+   ========================================================================== */
+
+/* 19.1 场景 / 壁纸丝滑转场（Cross-Fade Morph） */
+@keyframes agy-scene-morph {
+  0% {
+    opacity: 0.38;
+    filter: brightness(0.76) blur(5px);
+    transform: scale(1.016);
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1) blur(0px);
+    transform: scale(1);
+  }
+}
+
+html.agy-scene-morphing #cosmic-webgpu-bg,
+html.agy-scene-morphing #agy-wallpaper-media {
+  animation: agy-scene-morph 440ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* 19.2 关键控件磁吸微动交互（Magnetic Micro-Physics，默认开启） */
+html[data-magnetic="on"] #agy-theme-studio-root .agy-studio-fab,
+html[data-magnetic="on"] [data-testid="new-conversation-button"],
+html[data-magnetic="on"] [data-testid="settings-button"],
+html[data-magnetic="on"] [data-testid="agent-input-box"] [data-testid="input-send-button"],
+html[data-magnetic="on"] [data-testid="agent-input-box"] [data-testid="input-cancel-button"],
+html[data-magnetic="on"] [data-testid="agent-input-box"] button[aria-label*="Send" i] {
+  transform: translate3d(var(--mag-x, 0px), var(--mag-y, 0px), 0);
+  transition: transform 190ms cubic-bezier(0.22, 1, 0.36, 1), border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease !important;
+  will-change: transform;
+}
+
+html[data-magnetic="on"] #agy-theme-studio-root .agy-studio-fab:active,
+html[data-magnetic="on"] [data-testid="new-conversation-button"]:active,
+html[data-magnetic="on"] [data-testid="settings-button"]:active,
+html[data-magnetic="on"] [data-testid="agent-input-box"] [data-testid="input-send-button"]:active,
+html[data-magnetic="on"] [data-testid="agent-input-box"] [data-testid="input-cancel-button"]:active,
+html[data-magnetic="on"] [data-testid="agent-input-box"] button[aria-label*="Send" i]:active {
+  transform: translate3d(var(--mag-x, 0px), var(--mag-y, 0px), 0) scale(0.97) !important;
+}
+
+/* 19.4 图片与媒体预览纯实底保护（嵌入图片与点开的图片预览标签/弹窗均保持 100% 不透明，防止动态背景透出干扰观图） */
+html[data-cosmic-bg="on"] [data-main-content-body] img,
+html[data-cosmic-bg="on"] [data-side-panel-body] img,
+html[data-cosmic-bg="on"] [role="dialog"] img {
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-cosmic-bg="on"] [role="dialog"]:has(img) {
+  z-index: 2147482300 !important;
+}
+
+html[data-cosmic-bg="on"] [data-main-content-body] .border.rounded-lg:has(img),
+html[data-cosmic-bg="on"] [data-main-content-body] .border.rounded-xl:has(img),
+html[data-cosmic-bg="on"] [role="dialog"]:has(img),
+html[data-cosmic-bg="on"] [data-tiling-pane]:has(img):not(:has([data-testid="agent-input-box"])) {
+  background-color: #11141c !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] .border.rounded-lg:has(img),
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-main-content-body] .border.rounded-xl:has(img),
+html[data-cosmic-bg="on"][data-light-surface="on"] [role="dialog"]:has(img),
+html[data-cosmic-bg="on"][data-light-surface="on"] [data-tiling-pane]:has(img):not(:has([data-testid="agent-input-box"])) {
+  background-color: #f6f4ef !important;
+}
+
+/* 19.3 代码复制微光气泡（Glass Copy Toast） */
+@keyframes agy-copy-toast-anim {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.92);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1);
+  }
+  72% {
+    opacity: 1;
+    transform: translate(-50%, -10px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -18px) scale(0.96);
+  }
+}
+
+.agy-copy-toast {
+  position: fixed;
+  z-index: 2147482900;
+  pointer-events: none;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #f8fafc;
+  background: rgba(12, 16, 28, 0.88);
+  border: 1px solid color-mix(in srgb, var(--primary) 65%, rgba(255, 255, 255, 0.25));
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.42),
+    0 0 16px color-mix(in srgb, var(--primary) 38%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: agy-copy-toast-anim 920ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* 19.5 光标环境柔光灯（Ambient Cursor Halo）：极低饱和度漫射阅读照明 */
+#agy-cursor-halo {
+  position: fixed;
+  inset: 0;
+  z-index: 2147481900;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 280ms ease;
+  background: radial-gradient(
+    280px circle at var(--cursor-x, -500px) var(--cursor-y, -500px),
+    color-mix(in srgb, var(--primary) 13%, transparent) 0%,
+    color-mix(in srgb, var(--primary) 4%, transparent) 44%,
+    transparent 74%
+  );
+}
+
+html[data-cursor-halo="on"] #agy-cursor-halo {
+  opacity: 1;
+}
+
+html[data-cursor-halo="on"][data-light-surface="on"] #agy-cursor-halo {
+  background: radial-gradient(
+    260px circle at var(--cursor-x, -500px) var(--cursor-y, -500px),
+    color-mix(in srgb, var(--primary) 10%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+/* 19.6 新消息「柔焦显影」入场（Editorial Reveal） */
+@keyframes agy-editorial-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-main-content-body] [data-testid="user-message"],
+[data-main-content-body] [data-testid="agent-response"],
+[data-main-content-body] [data-testid="changed-files-card"] {
+  animation: agy-editorial-reveal 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 
 
 
